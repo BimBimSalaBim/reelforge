@@ -190,7 +190,20 @@ Captions are off by default in all three (see below). The machinery lives in
 `sbkit.captions` and `ledger.captions`; Slab has none at all, since a
 field-based frame has no dark band for a caption plate to sit on.
 
-**Ledger and Slab are additive, and ReelForge cannot see either.** Both import
+**All three are selectable in ReelForge.** `app/render/fallback_storyboard.py`
+carries a `FAMILIES` registry — `bloom` / `ledger` / `slab` — each naming an
+emitted module template and a screen catalogue. All three consume the *same*
+resolved DATA, so content work is shared and adding a fourth is one row plus a
+YAML file. `Template.family` selects one; `ledger` and `slab` are registered as
+deterministic templates, so they render from data with no codegen.
+
+Only the deterministic templates get the repo scroll. The four codegen
+templates (`cool-indigo`, `warm-amber`, `editorial`, `research`) produce
+model-written storyboards that know nothing about it — if codegen exhausts its
+attempts and falls back, the fallback does capture one.
+
+**Ledger and Slab are additive beyond that, and ReelForge could not see either
+until this was wired.** Both import
 `kit` and nothing else — never `sbkit`, never each other, so no two templates
 share module state. The app's `ALLOWED_IMPORTS` in
 `app/validate/storyboard.py` is `{…, kit, sbkit, timing}`, so a generated
@@ -208,6 +221,50 @@ and would otherwise blank the chrome on every transition.
 Ledger's own grid: `GUT_X 118` (index numerals) · `RULE_X 180` (spine) ·
 `CX 232` (content) · `RIGHT 996`, dropping to `RIGHT_LOW 932` below y 1000 for
 the platform button column. `ledger.right_edge(y)` returns the correct one.
+
+## The repo-scroll B-roll
+
+`app/render/reposhot.py` screenshots the repository page and the storyboard pans
+it top to bottom under the narration, as one screen about 7-13 s in.
+
+**One tall screenshot, not a screen recording.** The reel is drawn frame by
+frame in PIL, so a video would have to be decoded back into frames anyway. A
+single full-page PNG is ~200x fewer captures, pans at sub-pixel smoothness with
+any easing, costs one file instead of a few hundred, and decouples capture time
+from scene duration. A repo page is static, so nothing is lost.
+
+- Captured at **1080 wide**, the reel's own width, so there is no rescale later.
+  Trimmed at 14000px; declined below 2600px, where there is nothing to scroll.
+- **Best-effort by design.** No browser, a page that will not load, or a page
+  too short all return `None`, and the reel is built without that screen. A
+  missing B-roll costs nothing; a broken one is on screen for eight seconds.
+- Placement is not special-cased: the layout is weighted 99, above everything
+  else in the body, and `screens.pick()` fills the middle in weight order — so
+  it lands at index 1, right after the opener.
+- **Distance is `speed x time`, not "the whole page however tall it is".**
+  `slab.SCROLL_SPEED` is 400 frame-pixels/second and both families honour a
+  per-layout `speed:` in the catalogue. The first version had no rate at all --
+  it fitted the capture into whatever time the scene had, which for an 8768px
+  GitHub page in a 6s scene meant **~1600 px/s and read as a blur**. Reaching
+  the page's footer is not the goal; showing the repo is, and 4-5s of legible
+  travel does that.
+- The pan **holds at the top** for 12% of the screen before travelling, so the
+  repo name and header are readable rather than smearing past, and eases in and
+  out of the travel.
+- Both families support it. Slab is full bleed; **Bloom pans inside the panel
+  band**, because Bloom burns captions in and caption text over a scrolling
+  README is unreadable.
+
+`playwright` is in `requirements.txt` and needs `playwright install chromium`.
+On a host where that is refused — this one reports "does not support chromium on
+mac12" — `reposhot._executable()` finds a Chromium already in the Playwright
+cache or an installed Chrome and drives that instead.
+
+Scrim geometry is worth knowing before changing it: the scrims are **solid**
+field colour across the bands the chrome actually occupies, then fade out. A
+first pass faded to zero by y 250 and restarted at y 1600, which left the rail
+at y 128 half-covered and the footer at y 1524 not covered at all — legible in
+a still, illegible in the render.
 
 ## Layout
 

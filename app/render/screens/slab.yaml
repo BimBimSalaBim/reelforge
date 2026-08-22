@@ -1,14 +1,21 @@
 # Screen layouts for the Slab template.
 #
 # Same slot `kind` names as default.yaml on purpose -- `pick()` and `_resolve()`
-# are shared, so this file changes arrangement and nothing else. What differs is
-# the budget: Slab allows at most a headline plus ONE supporting block, because
-# the whole point of the language is that a frame carries less. A layout here
-# that stacked three slots would produce a worse frame than the same content
-# split across two screens.
+# are shared, so this file changes arrangement and nothing else.
+#
+# Two rules this catalogue exists to keep:
+#
+# 1. AT MOST ONE SUPPORTING BLOCK per screen. Slab's whole argument is that a
+#    frame carries less; a layout stacking three slots would produce a worse
+#    frame than the same content split over two screens.
+# 2. Slab draws NO eyebrow, so the headline is the screen's only voice -- which
+#    means body layouts must not all pull the same headline source, or the reel
+#    shows one phrase four times. (It did, on the first attempt.) Most body
+#    layouts here therefore lead with content and carry no headline at all,
+#    exactly as the Bloom catalogue does with its eyebrows.
 #
 # Geometry is Slab's grid: x 96-984 (932 below y 1000), headline from y 400,
-# the support block from y 900. No captions, so the usable band runs to 1500.
+# support block from y 880. No captions, so the usable band runs to 1500.
 
 # ------------------------------------------------------------------ openers
 - id: slab-hook
@@ -19,74 +26,95 @@
   slots:
     - {kind: headline, y: 400, size: 112, source: hook_lines}
 
-- id: slab-hook-counter
+- id: slab-hook-figure
   role: opener
   weight: 70
   eyebrow: ""
-  needs: [hook_lines, counter]
+  needs: [hook_lines, stats>=1]
   slots:
-    - {kind: headline, y: 380, size: 100, source: hook_lines}
-    - {kind: counter, y: 980, size: 176, source: counter}
+    - {kind: headline, y: 380, size: 96, source: hook_lines}
+    - {kind: counter, y: 1000, size: 168, source: stats}
 
 # -------------------------------------------------------------------- body
-- id: slab-point-facts
-  weight: 46
+# The captured repo page, panned top to bottom under the narration. Weighted
+# above everything else in the body so the picker -- which fills the middle in
+# weight order -- puts it at index 1, immediately after the opener. That is the
+# "after the initial screen, five to ten seconds in" placement.
+- id: slab-scroll
   eyebrow: ""
-  needs: [points, facts>=2]
+  weight: 99
+  needs: [scroll]
   slots:
-    - {kind: headline, y: 400, size: 116, source: point_lines}
-    - {kind: factlist, y: 900, source: facts, limit: 3}
+    # pan rate in frame-pixels/second; 400 reads as a page going by,
+    # 1600 (which is what fitting a whole README into one scene gives) is a blur
+    - {kind: scroll, source: scroll, speed: 400}
 
-- id: slab-point-stats
-  weight: 44
+# A screenshot is the one thing on screen the pipeline did not draw, so it is
+# worth the most when one exists -- and repeats with a variant so three uploads
+# become three screens.
+- id: slab-image
   eyebrow: ""
-  needs: [points, stats>=2]
+  weight: 96
+  needs: [images>=1]
+  repeat_with: images
   slots:
-    - {kind: headline, y: 400, size: 116, source: point_lines}
-    - {kind: statcards, y: 900, source: stats, limit: 3}
+    - {kind: image, y: 520, source: images}
 
+# Content-led: no headline, so nothing can repeat.
 - id: slab-figure
-  weight: 42
   eyebrow: ""
-  needs: [points, stats>=1]
+  weight: 88
+  needs: [stats>=1]
+  repeat_with: stats
   slots:
-    - {kind: headline, y: 400, size: 120, source: point_lines}
-    - {kind: counter, y: 940, size: 186, source: stats}
+    - {kind: counter, y: 620, size: 210, source: stats}
+
+- id: slab-stats
+  eyebrow: ""
+  weight: 84
+  needs: [stats>=2]
+  slots:
+    - {kind: statcards, y: 700, source: stats}
 
 - id: slab-command
-  weight: 38
   eyebrow: ""
+  weight: 80
   needs: [commands]
   slots:
-    - {kind: headline, y: 400, size: 116, source: point_lines}
-    - {kind: terminal, y: 980, source: commands}
+    - {kind: terminal, y: 760, source: commands}
 
 - id: slab-quote
-  weight: 30
   eyebrow: ""
+  weight: 74
   needs: [quote]
   slots:
-    - {kind: headline, y: 400, size: 112, source: point_lines}
-    - {kind: quote, y: 900, source: quote}
+    - {kind: quote, y: 700, source: quote}
 
-- id: slab-tiles
-  weight: 28
+- id: slab-facts
   eyebrow: ""
-  needs: [points, facts>=3]
+  weight: 68
+  needs: [facts>=3]
+  repeat_with: facts
   slots:
-    - {kind: headline, y: 400, size: 112, source: point_lines}
-    - {kind: tiles, y: 900, source: facts, limit: 4}
+    - {kind: factlist, y: 640, rows: 4, source: facts}
 
-# A screenshot is the one thing on screen the pipeline did not draw, so it gets
-# a field to itself with only a heading above it.
-- id: slab-image
-  weight: 64
-  eyebrow: "@image_eyebrow"
-  needs: [images]
-  consumes: images
+# The only body layouts with a headline, and they take it from DIFFERENT
+# sources so the two cannot say the same thing.
+- id: slab-point-facts
+  eyebrow: ""
+  weight: 58
+  needs: [points>=1, facts>=2]
   slots:
-    - {kind: headline, y: 360, size: 76, source: point_lines, limit: 1}
-    - {kind: image, y: 560, source: images}
+    - {kind: headline, y: 400, size: 108, source: point_lines}
+    - {kind: factlist, y: 900, rows: 3, source: facts}
+
+- id: slab-tagline-tiles
+  eyebrow: ""
+  weight: 46
+  needs: [tagline, facts>=3]
+  slots:
+    - {kind: quote, y: 400, source: tagline}
+    - {kind: tiles, y: 940, rows: 3, source: facts}
 
 # ------------------------------------------------------------------- closer
 - id: slab-end

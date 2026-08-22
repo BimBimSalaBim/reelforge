@@ -27,6 +27,18 @@
     - {kind: counter, y: 1080, size: 132, source: counter}
 
 # -------------------------------------------------------------------- body
+# The captured repo page, panned top to bottom under the narration. Weighted
+# above the rest of the body so the picker puts it at index 1 -- immediately
+# after the opener, five to ten seconds in.
+- id: repo-scroll
+  eyebrow: THE REPO
+  weight: 99
+  needs: [scroll]
+  slots:
+    # pan rate in frame-pixels/second; 400 reads as a page going by,
+    # 1600 (which is what fitting a whole README into one scene gives) is a blur
+    - {kind: scroll, source: scroll, speed: 400}
+
 # A screenshot is the only screen showing something the pipeline did not draw
 # itself, so it is worth a lot when one exists -- and `needs` means it simply
 # does not exist when none does. Repeats with a variant, so three uploads give

@@ -342,6 +342,54 @@ def note(ov, d, t, t0, th, y, txt, size=27, col=None, right=False):
     return k
 
 
+_SCROLL_CACHE = {}
+
+
+def load_scroll(path):
+    """A tall page capture at frame width, decoded once per process."""
+    if path not in _SCROLL_CACHE:
+        try:
+            img = Image.open(path).convert("RGB")
+            if img.width != W:
+                img = img.resize((W, int(img.height * W / img.width)),
+                                 Image.LANCZOS)
+            _SCROLL_CACHE[path] = img
+        except Exception:
+            _SCROLL_CACHE[path] = None
+    return _SCROLL_CACHE[path]
+
+
+#: Frame-pixels per second. Matches slab.SCROLL_SPEED so the same repo pans at
+#: the same rate whichever template a reel is built on.
+SCROLL_SPEED = 400
+
+
+def scroll(ov, d, t, t0, dur, th, path, y=STAGE_Y0, height=None,
+           speed=SCROLL_SPEED, hold=0.12, label=None):
+    """Pan a page capture inside the stage band, hung off the spine.
+
+    Ledger keeps its margins, so this is a framed panel rather than Slab's
+    full bleed -- the spine and the gutter index stay visible beside it, which
+    is the whole silhouette of this template.
+    """
+    img = load_scroll(path)
+    if img is None:
+        return False
+    band = height or (STAGE_Y1 - y)
+    p = clamp((t - t0) / max(dur, 0.01))
+    travel = min(max(0, img.height - band), speed * max(dur * (1.0 - hold), 0.01))
+    q = clamp((p - hold) / max(1.0 - hold, 0.05))
+    q = q * q * (3.0 - 2.0 * q)
+    top = int(q * travel)
+    crop = img.crop((0, top, W, min(top + band, img.height)))
+    x0, x1 = CX - 22, RIGHT
+    ov.paste(crop.resize((int(x1 - x0), band)), (int(x0), int(y)))
+    d.rectangle((x0, y, x0 + 6, y + band), fill=rgba(th.accent, 0.95))
+    if label:
+        text(d, (CX, y - 34), label, m(27, "bold"), th.accent, 1.0, 2, "lt")
+    return True
+
+
 def endcard(ov, d, t, t0, th, wordmark, sub, url, url2, cta,
             mark_size=140, follow="Follow for more"):
     """Ledger's end card. Left-aligned like everything else, and it keeps the

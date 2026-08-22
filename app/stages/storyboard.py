@@ -259,10 +259,42 @@ def generate_storyboard(
                             attempts=attempts, smoke=smoke, used_fallback=True)
 
 
+def capture_repo_scroll(repo_url: str, workspace: Path) -> dict | None:
+    """Screenshot the repo page for use as scrolling B-roll, or return None.
+
+    Best-effort by design: no browser, a page that will not load, or a page too
+    short to be worth scrolling all return None, and the reel is simply built
+    without that screen. A missing B-roll costs nothing; a broken one is on
+    screen for eight seconds.
+    """
+    if not repo_url:
+        return None
+    from app.render.reposhot import capture
+
+    target = workspace / "images" / "repo-scroll.png"
+    if target.exists():                       # a re-run reuses the capture
+        from PIL import Image
+        with Image.open(target) as img:
+            if img.height >= 2600:
+                return {"file": target.name,
+                        "label": _repo_label(repo_url), "height": img.height}
+    shot = capture(repo_url, target)
+    if not shot:
+        return None
+    return {"file": target.name, "label": _repo_label(repo_url),
+            "height": shot.height}
+
+
+def _repo_label(repo_url: str) -> str:
+    parts = repo_url.rstrip("/").split("/")
+    return "/".join(parts[-2:]) if len(parts) >= 2 else repo_url
+
+
 def write_fallback(
     content: ReelContent, workspace: Path, total: float,
     audio_rel: str, phrases_rel: str, captions: bool = True,
     timing_json: Path | None = None, images: list[dict] | None = None,
+    family: str = "bloom", repo_url: str | None = None,
 ) -> str:
     """Render the same content from data, with no generated code involved.
 
@@ -275,9 +307,11 @@ def write_fallback(
     if timing_json and timing_json.exists():
         segments = [tuple(seg) for seg in json.loads(timing_json.read_text())["segments"]]
 
+    scroll = capture_repo_scroll(repo_url or content.repo_url, workspace)
     source = build_source(content, total=total, audio_rel=audio_rel,
                           phrases_rel=phrases_rel, captions=captions,
-                          segments=segments, images=images)
+                          segments=segments, images=images, family=family,
+                          scroll=scroll)
     target = workspace / "storyboards" / f"{content.slug}.py"
     target.write_text(source)
     return source

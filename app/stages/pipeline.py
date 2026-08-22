@@ -314,7 +314,8 @@ def run_storyboard(job: Job, store: JobStore, progress: Progress | None = None) 
         write_fallback(content, paths.workspace, total,
                        f"{content.slug}.mp3", f"phrases/{content.slug}.txt",
                        captions=job.captions, timing_json=paths.timing_json,
-                       images=stage_images(job, paths))
+                       images=stage_images(job, paths),
+                       family=template.family, repo_url=content.repo_url)
         from app.stages.storyboard import run_smoke
 
         smoke = run_smoke(paths.workspace, content.slug, paths.smoke_dir,

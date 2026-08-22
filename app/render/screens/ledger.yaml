@@ -1,0 +1,102 @@
+# Screen layouts for the Ledger template.
+#
+# Same slot `kind` names as default.yaml -- `pick()` and `_resolve()` are
+# shared, so this file changes arrangement only.
+#
+# Ledger is the DENSE one of the three: a screen can carry a heading plus a
+# real block, because rows are hairlines rather than cards and the spine gives
+# the eye somewhere to start. Geometry is Ledger's grid: x 232-996 (932 below
+# y 1000), stage from y 392 to 1400, and an eyebrow-style heading at y 300.
+
+# ------------------------------------------------------------------ openers
+- id: ledger-hook
+  role: opener
+  weight: 100
+  eyebrow: "@eyebrow"
+  needs: [hook_lines]
+  slots:
+    - {kind: headline, y: 430, size: 62, source: hook_lines}
+
+- id: ledger-hook-counter
+  role: opener
+  weight: 66
+  eyebrow: "@eyebrow"
+  needs: [hook_lines, counter]
+  slots:
+    - {kind: headline, y: 420, size: 56, source: hook_lines}
+    - {kind: counter, y: 900, size: 124, source: counter}
+
+# -------------------------------------------------------------------- body
+# The captured repo page, panned under the narration. Weighted above the rest
+# of the body so `pick()` places it at index 1, right after the opener.
+- id: ledger-scroll
+  eyebrow: THE REPO
+  weight: 99
+  needs: [scroll]
+  slots:
+    # pan rate in frame-pixels/second, matching slab.SCROLL_SPEED
+    - {kind: scroll, source: scroll, speed: 400}
+
+- id: ledger-screenshot
+  eyebrow: "@image_eyebrow"
+  weight: 94
+  needs: [images>=1]
+  repeat_with: images
+  slots:
+    - {kind: image, y: 400, source: images}
+
+- id: ledger-stats
+  eyebrow: BY THE NUMBERS
+  weight: 88
+  needs: [stats>=2]
+  slots:
+    - {kind: statcards, y: 560, source: stats}
+    - {kind: factlist, y: 940, rows: 4, source: facts}
+
+- id: ledger-command
+  eyebrow: ONE COMMAND
+  weight: 82
+  needs: [commands]
+  slots:
+    - {kind: terminal, y: 600, source: commands}
+    - {kind: factlist, y: 880, rows: 4, source: facts}
+
+- id: ledger-point-facts
+  eyebrow: "@points_eyebrow"
+  weight: 74
+  needs: [points>=1, facts>=3]
+  slots:
+    - {kind: headline, y: 430, size: 54, source: point_lines}
+    - {kind: factlist, y: 720, rows: 5, source: facts}
+
+- id: ledger-figure
+  eyebrow: THE NUMBER
+  weight: 64
+  needs: [stats>=1]
+  repeat_with: stats
+  slots:
+    - {kind: counter, y: 560, size: 132, source: stats}
+    - {kind: factlist, y: 940, rows: 4, source: facts}
+
+- id: ledger-quote
+  eyebrow: IN ONE LINE
+  weight: 56
+  needs: [quote]
+  slots:
+    - {kind: quote, y: 560, size: 44, source: quote}
+
+# Always available, so a thin bundle never repeats the opener.
+- id: ledger-facts
+  eyebrow: THE DETAIL
+  weight: 30
+  needs: [facts>=2]
+  repeat_with: facts
+  slots:
+    - {kind: factlist, y: 520, rows: 6, source: facts}
+
+# ------------------------------------------------------------------- closer
+- id: ledger-end
+  role: closer
+  weight: 100
+  slots:
+    - {kind: endcard}

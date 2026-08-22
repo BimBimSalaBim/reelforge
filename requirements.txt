@@ -19,3 +19,8 @@ numpy==2.2.1
 # --- providers ----------------------------------------------------------
 anthropic==0.42.0
 openai==1.59.6
+
+# Repo-page capture for the scrolling B-roll screen (app/render/reposhot.py).
+# Optional at runtime: the capture declines and the reel is built without that
+# screen if the package or a browser is missing.
+playwright>=1.40

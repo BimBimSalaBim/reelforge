@@ -38,6 +38,7 @@ CAPABILITIES = {
     "quote": lambda c: 1 if c.get("quote") else 0,
     "counter": lambda c: 1 if c.get("counter") else 0,
     "images": lambda c: len(c.get("images") or []),
+    "scroll": lambda c: 1 if c.get("scroll") else 0,
 }
 
 

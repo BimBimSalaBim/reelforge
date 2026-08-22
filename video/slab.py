@@ -219,6 +219,29 @@ def figure(ov, d, value, label, t, t0, th, i, y=BODY_Y, size=190, col=None,
             text(d, (CX, y+int(size*1.16)+124), note, m(32), th.dim(i), k3, 0, "lt")
     return k
 
+def counter(ov, d, t, t0, th, i, y, target, label=None, dur=1.05, vsize=190,
+            col=None, note=None):
+    """A figure that ticks up to its target. Same layout as `figure`, so the
+    two are interchangeable in a catalogue slot -- the only difference is
+    whether the number arrives counted or set."""
+    p = eo4(lin(t, t0, t0+dur))
+    if p <= 0.0: return 0.0
+    n = int(round(target*p))
+    txt = f"{n:,}" if target >= 1000 else str(n)
+    ink = col or th.ink(i)
+    s = vsize; fo = f(s, "bold")
+    while tw(txt, fo) > (CR-CX) and s > 70:
+        s -= 6; fo = f(s, "bold")
+    text(d, (CX, y), txt, fo, ink, 1.0, 0, "lt")
+    ry = y + int(s*1.14)
+    d.rectangle((CX, ry, CX + int((CR-CX)*min(1.0, p*1.4)), ry+7), fill=rgba(ink, 0.95))
+    if label:
+        text(d, (CX, ry+52), label, f(38, "bold"), th.dim(i), min(1.0, p*3), 5, "lt")
+    if note:
+        text(d, (CX, ry+124), note, m(32), th.dim(i), min(1.0, p*3), 0, "lt")
+    return p
+
+
 def rows(ov, d, items, t, t0, th, i, y=BODY_Y, h=118, gap=10, stagger=0.11,
          lsize=44, vsize=34, lit=None):
     """At most three or four. Big enough to read on a phone held at arm's
@@ -312,6 +335,92 @@ def command(ov, d, txt, t, t0, th, i, y):
         text(D,(CX+38, y-12), txt, fo, ink, 1.0, 0, "lm")
     rise(ov, draw, (CX-8, y-64, CR+8, y+44), k)
     return k
+
+_SCROLL_CACHE = {}
+
+
+def load_scroll(path):
+    """A tall page capture, scaled to frame width. Cached: the renderer calls
+    frame() a thousand times and this must not be a thousand decodes."""
+    if path not in _SCROLL_CACHE:
+        if not os.path.exists(path):
+            _SCROLL_CACHE[path] = None
+        else:
+            try:
+                img = Image.open(path).convert("RGB")
+                if img.width != W:
+                    img = img.resize((W, int(img.height * W / img.width)),
+                                     Image.LANCZOS)
+                _SCROLL_CACHE[path] = img
+            except Exception:
+                _SCROLL_CACHE[path] = None
+    return _SCROLL_CACHE[path]
+
+
+#: Pan rate in frame-pixels per second. This is the control that matters.
+#: The first version had no rate at all -- it fitted the whole capture into
+#: whatever time the scene had, which for an 8768px GitHub page in a 6s scene
+#: meant ~1600 px/s and read as a blur. A page going past at this rate is
+#: legible as a page; raise it for a faster flick, lower it to let someone
+#: actually read a line. 520 was the first setting; 400 on request.
+SCROLL_SPEED = 400
+
+
+def scroll(ov, d, t, t0, dur, th, i, path, speed=SCROLL_SPEED, hold=0.12,
+           label=None):
+    """Pan a tall page capture downward at a FIXED rate, full bleed.
+
+    Distance is `speed x time`, not "the whole page however long that takes",
+    so how fast it reads never depends on how tall the repo's README happens
+    to be. If the page is short enough to finish inside the scene it stops at
+    the bottom and holds there; if it is not, it simply gets as far as it gets,
+    which is the right trade -- the screen is establishing the repo, not asking
+    anyone to read it.
+
+    Holds at the top for `hold` of the scene first, so the repo's name and
+    header are readable rather than smearing past, and eases in and out of the
+    travel: a linear pan starts and stops with a visible jerk at this size.
+    """
+    img = load_scroll(path)
+    if img is None:
+        return False
+    p = clamp((t - t0) / max(dur, 0.01))
+    travel_secs = max(dur * (1.0 - hold), 0.01)
+    travel = min(max(0, img.height - H), speed * travel_secs)
+    q = clamp((p - hold) / max(1.0 - hold, 0.05))
+    q = q * q * (3.0 - 2.0 * q)                      # smoothstep, eased both ends
+    y = int(q * travel)
+    ov.paste(img.crop((0, y, W, min(y + H, img.height))), (0, 0))
+
+    # The capture is a white page, so the rail and the footer would otherwise
+    # sit on it at whatever contrast the page happens to give them. Each scrim
+    # is SOLID field colour across the band the chrome actually occupies, then
+    # a gradient out of it. Getting this wrong is easy to miss: a first pass
+    # faded to 0 by y 250 and started again at y 1600, which left the rail at
+    # 128 half-covered and the footer at 1524 not covered at all.
+    solid_top, fade_top = 176, 340          # rail sits at RAIL_Y 128
+    fade_bot, solid_bot = 1330, FOOT_Y - 40  # footer sits at FOOT_Y 1524
+    fill = th.field(i)
+    top = Image.new("RGBA", (W, fade_top), (0, 0, 0, 0))
+    td = ImageDraw.Draw(top)
+    for row in range(fade_top):
+        a = 1.0 if row < solid_top else 1.0 - (row - solid_top) / max(
+            1, fade_top - solid_top)
+        td.line((0, row, W, row), fill=rgba(fill, a))
+    ov.alpha_composite(top, (0, 0))
+
+    bot = Image.new("RGBA", (W, H - fade_bot), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(bot)
+    for row in range(H - fade_bot):
+        y_abs = fade_bot + row
+        a = 1.0 if y_abs >= solid_bot else (y_abs - fade_bot) / max(
+            1, solid_bot - fade_bot)
+        bd.line((0, row, W, row), fill=rgba(fill, a))
+    ov.alpha_composite(bot, (0, fade_bot))
+    if label:
+        chip(ov, d, (CX, 236), label, t, t0 + 0.10, th, i, size=32)
+    return True
+
 
 def endcard(ov, d, t, t0, th, i, wordmark, sub, url, cta,
             mark_size=170, follow="Follow for more"):

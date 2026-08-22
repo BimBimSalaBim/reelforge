@@ -27,6 +27,9 @@ class Template:
     #: the storyboard shown to the model as a worked example
     example: str = "ruflo"
     deterministic: bool = False
+    #: which design language the deterministic renderer emits -- see
+    #: app/render/fallback_storyboard.FAMILIES
+    family: str = "bloom"
     palette: dict = field(default_factory=dict)
     motif: str = "flow"
     directory: Path | None = None
@@ -45,7 +48,8 @@ class Template:
     def as_dict(self) -> dict:
         return {"name": self.name, "title": self.title,
                 "description": self.description, "motif": self.motif,
-                "deterministic": self.deterministic, "palette": self.palette}
+                "deterministic": self.deterministic, "family": self.family,
+                "palette": self.palette}
 
 
 #: Shipped templates, derived from the storyboards that already work. Each names
@@ -92,7 +96,31 @@ BUILTIN: dict[str, Template] = {
         description="Renders from the content data with five fixed archetypes. "
                     "No model-written drawing code, so it always produces a video.",
         tone_hint="", example="ruflo", motif="flow", deterministic=True,
+        family="bloom",
         palette={"bg": [9, 9, 18], "accent": [124, 124, 248], "support": [64, 224, 208]},
+    ),
+    "ledger": Template(
+        name="ledger", title="Ledger (spine and rules)",
+        description="Left-aligned off a vertical spine, hairline rules instead "
+                    "of cards, and a scene index that accumulates in the "
+                    "gutter. The densest of the three -- best when a repo has "
+                    "a lot of specifics worth showing.",
+        tone_hint="Technical and specific. Rows of label/value read well here, "
+                  "so lead with the facts that have numbers or names attached.",
+        example="caveman", motif="flow", deterministic=True, family="ledger",
+        palette={"bg": [12, 11, 10], "accent": [232, 124, 48],
+                 "support": [120, 190, 255]},
+    ),
+    "slab": Template(
+        name="slab", title="Slab (full-bleed fields)",
+        description="Full-bleed colour fields, one idea per screen, type set "
+                    "large. Highest contrast of the three and the most legible "
+                    "on a phone; carries less information per frame in exchange.",
+        tone_hint="One statement per screen, at most one supporting block. "
+                  "Write short declarative lines -- the type is set at 100px+ "
+                  "and three words a line is the budget.",
+        example="anydoc", motif="flow", deterministic=True, family="slab",
+        palette={"bg": [18, 18, 20], "accent": [232, 84, 42], "support": [18, 74, 224]},
     ),
 }
 
@@ -114,6 +142,7 @@ def discover() -> dict[str, Template]:
             tone_hint=data.get("tone_hint", ""),
             example=data.get("example", "ruflo"),
             deterministic=bool(data.get("deterministic", False)),
+            family=data.get("family", "bloom"),
             palette=data.get("palette", {}),
             motif=data.get("motif", "flow"),
             directory=entry,
