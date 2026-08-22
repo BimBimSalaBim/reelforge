@@ -1,0 +1,100 @@
+# ReelForge on one machine.
+#
+#   docker compose -f docker/docker-compose.yml up --build
+#
+# Optional extras, off unless asked for:
+#   --profile local-llm   an Ollama container for fully local generation
+#   --profile local-tts   a Kokoro container for fully local narration
+#
+# Everything a job produces lands in ./data/jobs/<id>/, which is a plain
+# directory you can open, back up, or delete.
+
+name: reelforge
+
+x-common: &common
+  # Plain form on purpose: the `path:`/`required:` long syntax needs Compose
+  # v2.24+, and Docker 24 ships an older one. So `.env` must exist -- run
+  # `cp .env.example .env` first, as the README says. It may be left empty.
+  env_file: [../.env]
+  environment:
+    REELFORGE_EXECUTOR: celery
+    REELFORGE_QUEUE__BROKER_URL: redis://redis:6379/0
+    REELFORGE_QUEUE__RESULT_BACKEND: redis://redis:6379/1
+    # required for remote administration; unset means loopback-only settings
+    REELFORGE_ADMIN_TOKEN: ${REELFORGE_ADMIN_TOKEN:-}
+  volumes:
+    # the original pipeline, never written to
+    - ../video:/app/video:ro
+    - ../data:/app/data
+    - ../config.yaml:/app/config.yaml:ro
+  depends_on:
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    # Loopback only. The settings API accepts API keys, and without
+    # REELFORGE_ADMIN_TOKEN set it trusts anything that can reach it. Publish
+    # more widely only together with that token.
+    ports: ["127.0.0.1:8000:8000"]
+
+  # Short stages: ingest, content, audio, align, package. Kept off the render
+  # queue so an eight-minute encode never blocks a thirty-second LLM call.
+  worker:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    command: ["celery", "-A", "app.tasks", "worker", "--queues=celery",
+              "--concurrency=4", "--loglevel=info"]
+
+  # Rendering, cover art and storyboard smoke tests. CPU-bound for minutes at a
+  # time, and the only place generated code runs.
+  renderer:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.renderer
+    environment:
+      REELFORGE_EXECUTOR: celery
+      REELFORGE_QUEUE__BROKER_URL: redis://redis:6379/0
+      REELFORGE_QUEUE__RESULT_BACKEND: redis://redis:6379/1
+      # 0 lets the renderer size itself from the container's CPU allocation.
+      # Chunks already render in parallel inside one job, so celery concurrency
+      # here is 2, not 8 -- otherwise the two levels of parallelism multiply.
+      REELFORGE_RENDER__WORKERS: "0"
+    deploy:
+      resources:
+        limits: {cpus: "8"}
+
+  ollama:
+    profiles: ["local-llm"]
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes: [ollama-models:/root/.ollama]
+    restart: unless-stopped
+
+  tts:
+    profiles: ["local-tts"]
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    ports: ["8080:8880"]
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  ollama-models:

@@ -1,0 +1,162 @@
+# ---------------------------------------------------------------------------
+# ReelForge configuration.  This is the whole provider-switching surface:
+# change `provider:` and the pipeline uses a different backend, no code edits.
+# Secrets never live here -- they come from the environment (see .env.example).
+# Any value can be overridden by an env var: REELFORGE_LLM__PROVIDER=ollama
+# ---------------------------------------------------------------------------
+
+llm:
+  provider: ollama               # anthropic | openai | ollama | fake
+
+  anthropic:
+    model: claude-opus-5
+    max_tokens: 16384
+    temperature: 0.7
+    api_key_env: ANTHROPIC_API_KEY
+
+  # One adapter serves every OpenAI-compatible server. Point base_url at
+  # OpenAI, vLLM, LM Studio, Together, Groq, OpenRouter or Azure.
+  #   OpenAI proper : base_url https://api.openai.com/v1, model gpt-4o
+  #   LM Studio     : base_url http://host.docker.internal:1234/v1
+  # Defaults below point at a vLLM server on this machine, which needs no API key.
+  openai:
+    base_url: http://localhost:8000/v1
+    model: qwen
+    # vLLM here reports max_model_len 16384, and that ceiling covers prompt
+    # *and* completion -- so this stays well under it. Raise for a hosted model.
+    max_tokens: 6000
+    temperature: 0.7
+    api_key_env: OPENAI_API_KEY
+
+    # How structured output is requested. The adapter falls through this list
+    # in order, so a server that rejects one mode still works.
+    #   json_schema  grammar-constrained decoding. Exact, and the right choice
+    #                for a non-reasoning instruct model.
+    #   json_object  valid JSON, shape unenforced.
+    #   text         schema in the prompt; JSON recovered from the reply.
+    #
+    # Reasoning models (Qwen3, DeepSeek-R1 and similar) must NOT use
+    # json_schema: the grammar forces JSON from the first token, leaving the
+    # model no room to think, and it stalls. Measured against the local vLLM
+    # box: over 5 minutes with no result under json_schema, 40 seconds in text
+    # mode. Use text for a reasoning model; use json_schema for an instruct model.
+    json_mode: text
+
+  # Ollama's native API, used instead of its /v1 shim because `keep_alive`
+  # decides whether the next stage pays the model-load cost again, and a cold
+  # reload between stages is minutes of wall clock.
+  ollama:
+    base_url: http://localhost:11434   # http://ollama:11434 inside compose
+    # A non-reasoning instruct model. It can use grammar-constrained decoding,
+    # which a reasoning model cannot -- see the json_mode note above.
+    model: qwen2.5:7b-instruct-q4_K_M
+    max_tokens: 8000
+    temperature: 0.7
+    keep_alive: 30m
+
+  # Per-stage overrides. Storyboard codegen benefits most from a strong model;
+  # anything omitted inherits the top-level provider block.
+  roles:
+    content: {}
+    storyboard: {}
+    review: {}
+
+content:
+  # How the script gets written.
+  #   whole      one call for the whole script -- best flow, use with a
+  #              frontier model
+  #   per_scene  an outline call then one call per scene -- a small local model
+  #              returns 25 words when asked for 25, but 40 when asked for 95
+  #   auto       try whole once, fall back to per_scene if it comes back wrong
+  script_mode: auto
+  target_seconds_min: 36.0
+  target_seconds_max: 44.0
+  max_attempts: 3
+
+tts:
+  # upload     -- you supply the narration file
+  # elevenlabs -- hosted, highest quality, metered per character
+  # openai     -- hosted
+  # local      -- self-hosted Kokoro/Piper container (compose profile local-tts)
+  # say        -- macOS `say`, development only, free and offline
+  provider: upload
+
+  elevenlabs:
+    voice_id: JBFqnCBsd6RMkjVDRZzb     # GET /api/config/providers lists your voices
+    model: eleven_multilingual_v2      # eleven_multilingual_v2 | eleven_turbo_v2_5 | eleven_v3
+    output_format: mp3_44100_128
+    stability: 0.5
+    similarity_boost: 0.75
+    style: 0.0
+    use_speaker_boost: true
+    # Credits are metered per character. A 40 s reel is roughly 550-700
+    # characters, so this ceiling is about six reels' worth per job and exists
+    # to make an accidental long job fail before it spends anything.
+    max_characters_per_job: 4000
+
+    # Keys. Read from .env, never stored in this file.
+    # One variable, which may itself hold several comma-separated keys:
+    api_key_env: ELEVENLABS_API_KEY
+    # ...or name several. They are used in order, and when one runs out of
+    # credit mid-narration the next takes over automatically.
+    api_key_envs: [ELEVENLABS_API_KEY, ELEVENLABS_API_KEY_2, ELEVENLABS_API_KEY_3]
+    # Pin one key by label ("ELEVENLABS_API_KEY_2") or 0-based position.
+    # null rotates automatically. Pinning disables rotation deliberately.
+    active_key: null
+
+  openai:
+    base_url: https://api.openai.com/v1
+    model: gpt-4o-mini-tts
+    voice: onyx                        # alloy|echo|fable|onyx|nova|shimmer|...
+    api_key_env: OPENAI_API_KEY
+
+  local:
+    base_url: http://tts:8080
+    voice: af_heart
+    engine: kokoro
+
+  say:
+    voice: Daniel
+    rate: 165
+
+ingest:
+  github_token_env: GITHUB_TOKEN
+  hf_token_env: HUGGINGFACE_TOKEN
+  timeout_seconds: 30
+  readme_max_chars: 60000
+
+render:
+  chunk_seconds: 4.0             # must be a whole number of 2 s GOPs
+  # 0 = decide from the machine (cores - 1, capped at 8). Each worker runs a
+  # renderer and an encoder, so setting this to twice the core count does not
+  # go faster -- it thrashes.
+  workers: 0
+  safe_encode: false             # true = single-process pipe, exactly like make.sh
+  fps: 30
+  width: 1080
+  height: 1920
+
+fonts:
+  # Bundled OSS faces. Helvetica Neue and Menlo are macOS-only and not
+  # redistributable, so kit.f / kit.m are patched at render time.
+  display_dir: docker/fonts
+  display_family: Inter
+  mono_family: DejaVuSansMono   # JetBrainsMono is available but lacks the rotate/star glyphs
+
+storyboard:
+  max_repair_attempts: 3
+  vision_review: false           # needs a multimodal provider
+  fallback_to_template: true
+  smoke_frames: 16
+  smoke_timeout_seconds: 90
+  memory_limit_mb: 3072
+
+paths:
+  video_dir: video               # the untouched existing pipeline
+  data_dir: data
+  out_dir: out
+
+queue:
+  broker_url: redis://redis:6379/0
+  result_backend: redis://redis:6379/1
+  progress_channel_prefix: reelforge:progress

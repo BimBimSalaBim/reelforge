@@ -1,0 +1,97 @@
+# Screen layouts for the Slab template.
+#
+# Same slot `kind` names as default.yaml on purpose -- `pick()` and `_resolve()`
+# are shared, so this file changes arrangement and nothing else. What differs is
+# the budget: Slab allows at most a headline plus ONE supporting block, because
+# the whole point of the language is that a frame carries less. A layout here
+# that stacked three slots would produce a worse frame than the same content
+# split across two screens.
+#
+# Geometry is Slab's grid: x 96-984 (932 below y 1000), headline from y 400,
+# the support block from y 900. No captions, so the usable band runs to 1500.
+
+# ------------------------------------------------------------------ openers
+- id: slab-hook
+  role: opener
+  weight: 100
+  eyebrow: ""
+  needs: [hook_lines]
+  slots:
+    - {kind: headline, y: 400, size: 112, source: hook_lines}
+
+- id: slab-hook-counter
+  role: opener
+  weight: 70
+  eyebrow: ""
+  needs: [hook_lines, counter]
+  slots:
+    - {kind: headline, y: 380, size: 100, source: hook_lines}
+    - {kind: counter, y: 980, size: 176, source: counter}
+
+# -------------------------------------------------------------------- body
+- id: slab-point-facts
+  weight: 46
+  eyebrow: ""
+  needs: [points, facts>=2]
+  slots:
+    - {kind: headline, y: 400, size: 116, source: point_lines}
+    - {kind: factlist, y: 900, source: facts, limit: 3}
+
+- id: slab-point-stats
+  weight: 44
+  eyebrow: ""
+  needs: [points, stats>=2]
+  slots:
+    - {kind: headline, y: 400, size: 116, source: point_lines}
+    - {kind: statcards, y: 900, source: stats, limit: 3}
+
+- id: slab-figure
+  weight: 42
+  eyebrow: ""
+  needs: [points, stats>=1]
+  slots:
+    - {kind: headline, y: 400, size: 120, source: point_lines}
+    - {kind: counter, y: 940, size: 186, source: stats}
+
+- id: slab-command
+  weight: 38
+  eyebrow: ""
+  needs: [commands]
+  slots:
+    - {kind: headline, y: 400, size: 116, source: point_lines}
+    - {kind: terminal, y: 980, source: commands}
+
+- id: slab-quote
+  weight: 30
+  eyebrow: ""
+  needs: [quote]
+  slots:
+    - {kind: headline, y: 400, size: 112, source: point_lines}
+    - {kind: quote, y: 900, source: quote}
+
+- id: slab-tiles
+  weight: 28
+  eyebrow: ""
+  needs: [points, facts>=3]
+  slots:
+    - {kind: headline, y: 400, size: 112, source: point_lines}
+    - {kind: tiles, y: 900, source: facts, limit: 4}
+
+# A screenshot is the one thing on screen the pipeline did not draw, so it gets
+# a field to itself with only a heading above it.
+- id: slab-image
+  weight: 64
+  eyebrow: "@image_eyebrow"
+  needs: [images]
+  consumes: images
+  slots:
+    - {kind: headline, y: 360, size: 76, source: point_lines, limit: 1}
+    - {kind: image, y: 560, source: images}
+
+# ------------------------------------------------------------------- closer
+- id: slab-end
+  role: closer
+  weight: 100
+  eyebrow: ""
+  slots:
+    - {kind: endcard}

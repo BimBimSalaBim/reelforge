@@ -1,0 +1,36 @@
+/* The renderer's own faces, served from docker/fonts by app/main.py.
+ *
+ * Four weights, not the nine on disk: the app needs regular, medium and
+ * semibold plus a mono. The reason to use these rather than the system stack is
+ * not decoration -- the reel-frame preview draws the eyebrow pill and the
+ * caption band at the renderer's own sizes, so it has to draw them in the
+ * renderer's own typeface or it lies about how much room the text takes.
+ *
+ * If /v2/fonts is not mounted these src rules fail and the system stack in
+ * --font-sans takes over. The page is a shade less polished; nothing breaks.
+ */
+@font-face {
+  font-family: Inter;
+  src: url(/v2/fonts/Inter-Regular.ttf) format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: Inter;
+  src: url(/v2/fonts/Inter-Medium.ttf) format("truetype");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: Inter;
+  src: url(/v2/fonts/Inter-SemiBold.ttf) format("truetype");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: Inter;
+  src: url(/v2/fonts/Inter-Bold.ttf) format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "DejaVu Sans Mono";
+  src: url(/v2/fonts/DejaVuSansMono.ttf) format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}

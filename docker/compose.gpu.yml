@@ -1,0 +1,25 @@
+# GPU override. Use alongside the base file:
+#
+#   docker compose -f docker/docker-compose.yml -f docker/compose.gpu.yml \
+#     --profile local-llm up
+#
+# Needs the NVIDIA container toolkit on the host.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  tts:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

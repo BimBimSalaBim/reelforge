@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-page="job">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel · ReelForge</title>
+<script src="/v2/static/theme.js"></script>
+<link rel="stylesheet" href="/v2/static/fonts.css">
+<link rel="stylesheet" href="/v2/static/app.css">
+<script defer src="/v2/static/dom.js"></script>
+<script defer src="/v2/static/icons.js"></script>
+<script defer src="/v2/static/api.js"></script>
+<script defer src="/v2/static/stages.js"></script>
+<script defer src="/v2/static/queue.js"></script>
+<script defer src="/v2/static/shell.js"></script>
+<script defer src="/v2/static/job.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="shell" data-shell></header>
+
+<main id="main" class="page">
+  <div class="page__body stack" data-gap="5">
+
+    <div class="stack" data-gap="2" data-job-head></div>
+
+    <div class="workbench">
+      <aside class="workbench__rail stack" data-gap="4">
+        <div data-rail></div>
+        <div class="stack" data-gap="2" data-actions></div>
+      </aside>
+
+      <section class="workbench__main" data-pane>
+        <div class="skeleton skeleton--card"></div>
+      </section>
+
+      <aside class="workbench__aside stack" data-gap="4">
+        <div class="card card--flush">
+          <div class="card__head">
+            <span class="card__title grow">Activity</span>
+            <span class="badge" data-live>idle</span>
+          </div>
+          <div class="log" data-log></div>
+        </div>
+        <div data-artifacts></div>
+      </aside>
+    </div>
+
+  </div>
+</main>
+
+<div class="toaster" data-toaster aria-live="polite"></div>
+</body>
+</html>

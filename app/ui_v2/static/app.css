@@ -1,0 +1,649 @@
+/* ============================================================================
+ * ReelForge v2 — the design system.
+ *
+ * The v1 stylesheet is not ugly, it is unsystematic, and each section below
+ * answers a specific fault measured in it:
+ *
+ *   padding values 3,5,6,7,8,9,10,11,13,16,19,20,36px  -> a 4px spacing scale
+ *   font sizes 10,11,12,13,14,15,16,19px chosen ad hoc -> a 1.2 ratio type scale
+ *   panel #12141a on bg #0b0c10, a 2% step             -> a real elevation model
+ *   ~14 colours outside the token set                  -> no raw hex below :root
+ *   no :focus-visible anywhere                         -> focus on everything
+ *   fixed 270px 1fr 350px at any width                 -> breakpoints
+ *
+ * Rule for anyone editing this file: no raw colour below the token block, and
+ * no `style=` attribute in any .html file. Both are enforced by tests.
+ * ========================================================================= */
+
+/* ------------------------------------------------------------------ TOKENS */
+:root {
+  /* Native selects, scrollbars and the default focus ring follow this. It is
+   * set per theme rather than hardcoded, or a light page gets dark scrollbars. */
+  color-scheme: dark;
+
+  /* neutral ramp — cool, to sit with the product's indigo */
+  --n-975:#050609; --n-950:#07080c; --n-900:#0b0d13; --n-875:#0f121a;
+  --n-850:#12151e; --n-800:#171b25; --n-750:#1d222e; --n-700:#252b3a;
+  --n-650:#2f3648; --n-600:#3b4356; --n-500:#4f5a70; --n-400:#6d7996;
+  --n-300:#8f9ab3; --n-200:#b4bdd0; --n-100:#dce2ee; --n-050:#f2f5fa;
+
+  /* hues — 300/400 read as text on dark, 500 fills, 950 tints */
+  --indigo-300:#a5a5ff; --indigo-400:#8b8bff; --indigo-500:#7c7cf8;
+  --indigo-600:#6060dd; --indigo-950:#1a1a3d;
+  --teal-400:#40e0d0;  --teal-950:#0b2b28;
+  --green-400:#6ee1b4; --green-950:#0d2b22;
+  --amber-400:#f0be60; --amber-950:#2e2312;
+  --red-400:#ff6f7d;   --red-950:#33141b;
+
+  /* surfaces — each step a visible increment, so a card reads as a surface */
+  --surface-0:var(--n-950);
+  --surface-1:var(--n-900);
+  --surface-2:var(--n-850);
+  --surface-3:var(--n-800);
+  --surface-inset:var(--n-975);
+
+  --border-subtle:var(--n-800); --border:var(--n-700); --border-strong:var(--n-650);
+
+  --text-1:var(--n-050); --text-2:var(--n-200);
+  --text-3:var(--n-400); --text-4:var(--n-500);
+  --text-on-accent:var(--n-950);
+
+  --accent:var(--indigo-500); --accent-hover:var(--indigo-400);
+  --accent-text:var(--indigo-300); --accent-soft:var(--indigo-950);
+  --focus:var(--indigo-400); --focus-ring:rgb(139 139 255 / .40);
+
+  /* status — always a foreground, a tint and a border, never colour alone */
+  --st-pending-fg:var(--n-400);      --st-pending-bg:var(--n-850);      --st-pending-bd:var(--n-700);
+  --st-queued-fg:var(--teal-400);    --st-queued-bg:var(--teal-950);    --st-queued-bd:#1d4a44;
+  --st-running-fg:var(--indigo-300); --st-running-bg:var(--indigo-950); --st-running-bd:var(--indigo-600);
+  --st-review-fg:var(--amber-400);   --st-review-bg:var(--amber-950);   --st-review-bd:#5a4a1e;
+  --st-done-fg:var(--green-400);     --st-done-bg:var(--green-950);     --st-done-bd:#1d4a3a;
+  --st-failed-fg:var(--red-400);     --st-failed-bg:var(--red-950);     --st-failed-bd:#5a2430;
+  --st-skipped-fg:var(--n-500);      --st-skipped-bg:var(--n-875);      --st-skipped-bd:var(--n-750);
+
+  /* spacing — 4px base. The only spacing values in this file. */
+  --sp-1:4px;  --sp-2:8px;  --sp-3:12px; --sp-4:16px; --sp-5:20px;
+  --sp-6:24px; --sp-7:32px; --sp-8:40px; --sp-9:48px; --sp-10:64px;
+
+  /* type — 1.2 minor third anchored at 14px */
+  --fs-3xs:11px; --fs-2xs:12px; --fs-xs:13px; --fs-sm:14px; --fs-md:16px;
+  --fs-lg:19px;  --fs-xl:23px;  --fs-2xl:28px;
+  --lh-tight:1.2; --lh-snug:1.35; --lh-base:1.55;
+  /* Inter wants negative tracking above ~18px and open tracking on small caps.
+   * Skipping this is why most hand-rolled dark UIs look slightly off. */
+  --ls-display:-0.014em; --ls-tight:-0.006em; --ls-caps:0.09em;
+
+  --font-sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"DejaVu Sans Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px; --r-full:999px;
+
+  /* elevation — on dark a shadow alone is invisible; the light ring is what
+   * actually reads as "raised" */
+  --shadow-sm:0 1px 2px rgb(0 0 0 / .45);
+  --shadow-md:0 6px 16px -4px rgb(0 0 0 / .55), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-lg:0 24px 56px -12px rgb(0 0 0 / .65), 0 0 0 1px rgb(255 255 255 / .05);
+
+  --dur-fast:110ms; --dur:170ms; --dur-slow:240ms;
+  --ease:cubic-bezier(.2,0,0,1);
+
+  /* The reel's own colours, not the app's. The preview shows what the *video*
+   * looks like, and the video is dark whatever theme the app is in -- so these
+   * deliberately do not appear in the light block below. Keeping them named
+   * stops them being mistaken for UI colours that someone forgot to theme. */
+  --reel-ink:#e8eaf0; --reel-warn:#f0be60; --reel-ground:#07080c;
+  --mask-opaque:#000;   /* a mask stop, i.e. "fully opaque", not a colour */
+
+  --control-h:34px; --control-h-sm:26px;
+  --rail-w:264px; --aside-w:352px; --page-max:1480px; --shell-h:56px;
+}
+
+/* ------------------------------------------------------------- LIGHT THEME */
+/* Only the semantic layer is overridden -- the ramp and the hues stay put, so
+ * this is the whole theme rather than a second stylesheet.
+ *
+ * There is one block, not two, because `theme.js` resolves the system
+ * preference into an explicit `data-theme` before first paint. A CSS-only
+ * version needs the same declarations again inside a
+ * `@media (prefers-color-scheme: light)`, and two copies of a palette drift.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --surface-0:#f7f8fb;   /* page   */
+  --surface-1:#ffffff;   /* card   */
+  --surface-2:#f2f4f8;   /* input  */
+  --surface-3:#e8ebf2;   /* hover  */
+  --surface-inset:#f0f2f7;
+
+  --border-subtle:#e3e7ef; --border:#d3d9e6; --border-strong:#b9c2d4;
+
+  --text-1:#101426; --text-2:#39415a; --text-3:#606b85; --text-4:#8792a8;
+  --text-on-accent:#ffffff;
+
+  /* The indigo has to go darker to hold contrast on white; the same hue at 500
+   * is a 2.4:1 ratio against #fff, which fails everything. */
+  --accent:#5757e0; --accent-hover:#4a4ad2;
+  --accent-text:#4a4ad2; --accent-soft:#ececff;
+  --focus:#5757e0; --focus-ring:rgb(87 87 224 / .28);
+
+  --st-pending-fg:#606b85; --st-pending-bg:#f0f2f7; --st-pending-bd:#dfe4ee;
+  --st-queued-fg:#0b7d72;  --st-queued-bg:#e3f7f4;  --st-queued-bd:#b6e6df;
+  --st-running-fg:#4a4ad2; --st-running-bg:#ececff; --st-running-bd:#c3c3f5;
+  --st-review-fg:#8a5b00;  --st-review-bg:#fdf3de;  --st-review-bd:#f0dcae;
+  --st-done-fg:#0a7048;    --st-done-bg:#e2f7ee;    --st-done-bd:#b3e6d0;
+  --st-failed-fg:#b3243a;  --st-failed-bg:#fdeaed;  --st-failed-bd:#f3c2cb;
+  --st-skipped-fg:#8792a8; --st-skipped-bg:#f2f4f8; --st-skipped-bd:#e3e7ef;
+
+  /* On white a shadow is visible on its own, so the light ring that carries
+   * elevation on dark is dropped -- it reads as a grey halo here. */
+  --shadow-sm:0 1px 2px rgb(16 20 38 / .06);
+  --shadow-md:0 4px 14px -4px rgb(16 20 38 / .12);
+  --shadow-lg:0 20px 48px -12px rgb(16 20 38 / .20);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:.001ms !important; animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+  }
+}
+
+/* -------------------------------------------------------------------- BASE */
+*, *::before, *::after { box-sizing:border-box; min-width:0 }
+html { -webkit-text-size-adjust:100% }
+body {
+  margin:0; background:var(--surface-0); color:var(--text-2);
+  font:var(--fw-normal,400) var(--fs-sm)/var(--lh-base) var(--font-sans);
+  letter-spacing:var(--ls-tight);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+h1,h2,h3,h4 { margin:0; color:var(--text-1); line-height:var(--lh-tight);
+  letter-spacing:var(--ls-display); font-weight:600 }
+p { margin:0 }
+a { color:var(--accent-text); text-decoration:underline; text-underline-offset:2px;
+  text-decoration-color:rgb(165 165 255 / .4) }
+a:hover { text-decoration-color:currentColor }
+img,video,canvas { max-width:100%; display:block }
+[hidden] { display:none !important }
+::selection { background:var(--accent-soft); color:var(--text-1) }
+
+:focus-visible { outline:2px solid var(--focus); outline-offset:2px; border-radius:var(--r-xs) }
+
+.skip-link {
+  position:absolute; left:var(--sp-2); top:calc(var(--sp-2) * -8); z-index:100;
+  padding:var(--sp-2) var(--sp-4); background:var(--surface-3); color:var(--text-1);
+  border-radius:var(--r-md); transition:top var(--dur) var(--ease);
+}
+.skip-link:focus { top:var(--sp-2) }
+
+.mono { font-family:var(--font-mono); font-variant-numeric:tabular-nums }
+.num  { font-family:var(--font-mono); font-variant-numeric:tabular-nums;
+        letter-spacing:0 }
+.muted { color:var(--text-3) }
+.dim   { color:var(--text-4) }
+.grow  { flex:1 1 auto; min-width:0 }
+.truncate { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.section__title { font-size:var(--fs-lg); font-weight:600 }
+.eyebrow { font-size:var(--fs-3xs); font-weight:600; text-transform:uppercase;
+  letter-spacing:var(--ls-caps); color:var(--text-3) }
+
+/* ------------------------------------------------------------------ LAYOUT */
+/* Five primitives cover every arrangement in the app; no utility soup. */
+.page { padding:var(--sp-6) 0 var(--sp-10) }
+.page__body { max-width:var(--page-max); margin-inline:auto; padding-inline:var(--sp-6) }
+
+.stack > * + * { margin-block-start:var(--sp-4) }
+.stack[data-gap="1"] > * + * { margin-block-start:var(--sp-1) }
+.stack[data-gap="2"] > * + * { margin-block-start:var(--sp-2) }
+.stack[data-gap="3"] > * + * { margin-block-start:var(--sp-3) }
+.stack[data-gap="4"] > * + * { margin-block-start:var(--sp-4) }
+.stack[data-gap="5"] > * + * { margin-block-start:var(--sp-5) }
+.stack[data-gap="6"] > * + * { margin-block-start:var(--sp-6) }
+.stack[data-gap="7"] > * + * { margin-block-start:var(--sp-7) }
+
+.cluster { display:flex; flex-wrap:wrap; gap:var(--sp-3); align-items:center }
+.cluster[data-gap="2"] { gap:var(--sp-2) }
+.cluster[data-gap="4"] { gap:var(--sp-4) }
+.cluster[data-align="baseline"] { align-items:baseline }
+.cluster[data-align="start"] { align-items:flex-start }
+
+.grid { display:grid; gap:var(--sp-4);
+  grid-template-columns:repeat(auto-fill, minmax(var(--min, 300px), 1fr)) }
+
+.split { display:grid; gap:var(--sp-6); grid-template-columns:1fr }
+@media (min-width:1100px) { .split { grid-template-columns:minmax(0,1fr) minmax(0,var(--aside-w)) } }
+
+/* ---------------------------------------------------------------- THE SHELL */
+.shell {
+  position:sticky; top:0; z-index:20; height:var(--shell-h);
+  display:flex; align-items:center; gap:var(--sp-4);
+  padding-inline:var(--sp-6);
+  background:color-mix(in srgb, var(--surface-0) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-block-end:1px solid var(--border-subtle);
+}
+.shell__mark { display:flex; align-items:center; gap:var(--sp-2);
+  font-weight:600; color:var(--text-1); font-size:var(--fs-md);
+  letter-spacing:var(--ls-display); text-decoration:none }
+.shell__dot { width:9px; height:9px; border-radius:var(--r-full);
+  background:var(--accent); box-shadow:0 0 12px var(--accent) }
+.shell__nav { display:flex; gap:var(--sp-1) }
+.shell__link {
+  padding:var(--sp-2) var(--sp-3); border-radius:var(--r-md);
+  color:var(--text-3); text-decoration:none; font-size:var(--fs-xs);
+  font-weight:500; transition:background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.shell__link:hover { background:var(--surface-2); color:var(--text-2) }
+.shell__link[aria-current="page"] { background:var(--accent-soft); color:var(--accent-text) }
+
+/* -------------------------------------------------------------- COMPONENTS */
+.card {
+  background:var(--surface-1); border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg); padding:var(--sp-5);
+}
+.card--flush { padding:0; overflow:hidden }
+.card--raised { box-shadow:var(--shadow-md) }
+.card__head { display:flex; align-items:center; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-5); border-block-end:1px solid var(--border-subtle) }
+.card__title { font-size:var(--fs-sm); font-weight:600; color:var(--text-1) }
+.card__body { padding:var(--sp-5) }
+.card__foot { padding:var(--sp-4) var(--sp-5); border-block-start:1px solid var(--border-subtle);
+  background:var(--surface-0) }
+
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  height:var(--control-h); padding-inline:var(--sp-4);
+  border:1px solid var(--border); border-radius:var(--r-md);
+  background:var(--surface-2); color:var(--text-1);
+  font:500 var(--fs-xs)/1 var(--font-sans); cursor:pointer; white-space:nowrap;
+  transition:background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+             color var(--dur-fast) var(--ease);
+}
+.btn:hover:not(:disabled) { background:var(--surface-3); border-color:var(--border-strong) }
+.btn:disabled { opacity:.5; cursor:not-allowed }
+.btn--primary { background:var(--accent); border-color:var(--accent);
+  color:var(--text-on-accent); font-weight:600 }
+.btn--primary:hover:not(:disabled) { background:var(--accent-hover); border-color:var(--accent-hover) }
+.btn--ghost { background:transparent }
+.btn--quiet { background:transparent; border-color:transparent; color:var(--text-3) }
+.btn--quiet:hover:not(:disabled) { background:var(--surface-2); color:var(--text-2) }
+.btn--danger { color:var(--st-failed-fg); border-color:var(--st-failed-bd) }
+.btn--danger:hover:not(:disabled) { background:var(--st-failed-bg) }
+.btn--sm { height:var(--control-h-sm); padding-inline:var(--sp-3); font-size:var(--fs-3xs) }
+.btn[data-busy] { pointer-events:none; opacity:.7 }
+
+.iconbtn { display:inline-grid; place-items:center; width:var(--control-h);
+  height:var(--control-h); border-radius:var(--r-md); border:1px solid transparent;
+  background:transparent; color:var(--text-3); cursor:pointer }
+.iconbtn:hover { background:var(--surface-2); color:var(--text-1) }
+
+.field { display:flex; flex-direction:column; gap:var(--sp-2) }
+.field__label { font-size:var(--fs-xs); font-weight:500; color:var(--text-2) }
+.field__hint  { font-size:var(--fs-2xs); color:var(--text-3); line-height:var(--lh-snug) }
+.field__error { font-size:var(--fs-2xs); color:var(--st-failed-fg) }
+
+.input, .select, .textarea {
+  width:100%; padding:0 var(--sp-3); height:var(--control-h);
+  background:var(--surface-2); color:var(--text-1);
+  border:1px solid var(--border); border-radius:var(--r-md);
+  font:400 var(--fs-xs)/1 var(--font-sans);
+  transition:border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.textarea { height:auto; padding:var(--sp-3); line-height:var(--lh-base);
+  font-family:var(--font-mono); font-size:var(--fs-2xs); resize:vertical }
+.input--sm { height:var(--control-h-sm); font-size:var(--fs-2xs) }
+.input::placeholder { color:var(--text-4) }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible {
+  outline:none; border-color:var(--focus); box-shadow:0 0 0 3px var(--focus-ring);
+}
+
+.switch { display:inline-flex; align-items:center; gap:var(--sp-3); cursor:pointer }
+.switch input { position:absolute; opacity:0; width:0; height:0 }
+.switch__track { width:38px; height:22px; border-radius:var(--r-full);
+  background:var(--surface-3); border:1px solid var(--border); position:relative;
+  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease) }
+.switch__track::after { content:""; position:absolute; inset-block-start:2px; inset-inline-start:2px;
+  width:16px; height:16px; border-radius:var(--r-full); background:var(--text-3);
+  transition:transform var(--dur) var(--ease), background var(--dur) var(--ease) }
+.switch input:checked + .switch__track { background:var(--accent-soft); border-color:var(--accent) }
+.switch input:checked + .switch__track::after { transform:translateX(16px); background:var(--accent) }
+.switch input:focus-visible + .switch__track { box-shadow:0 0 0 3px var(--focus-ring) }
+
+.segmented { display:inline-flex; padding:3px; gap:2px; background:var(--surface-2);
+  border:1px solid var(--border); border-radius:var(--r-md) }
+.segmented__item { border:0; background:transparent; color:var(--text-3); cursor:pointer;
+  padding:var(--sp-1) var(--sp-3); border-radius:var(--r-sm);
+  font:500 var(--fs-2xs)/1.6 var(--font-sans) }
+.segmented__item[aria-pressed="true"] { background:var(--surface-3); color:var(--text-1) }
+.segmented__item:disabled { opacity:.45; cursor:not-allowed }
+
+.tabs { display:inline-flex; gap:var(--sp-1); padding:3px; background:var(--surface-1);
+  border:1px solid var(--border-subtle); border-radius:var(--r-md) }
+.tab { border:0; background:transparent; color:var(--text-3); cursor:pointer;
+  padding:var(--sp-1) var(--sp-3); border-radius:var(--r-sm);
+  font:500 var(--fs-2xs)/1.7 var(--font-sans) }
+.tab[aria-selected="true"] { background:var(--surface-3); color:var(--text-1) }
+
+.chip { display:inline-flex; align-items:center; gap:var(--sp-2);
+  padding:3px var(--sp-2) 3px var(--sp-2); border-radius:var(--r-full);
+  font-size:var(--fs-3xs); font-weight:600; letter-spacing:.01em;
+  border:1px solid var(--st-pending-bd); background:var(--st-pending-bg); color:var(--st-pending-fg) }
+.chip::before { content:""; width:6px; height:6px; border-radius:var(--r-full);
+  background:currentColor; flex:none }
+.chip--queued  { border-color:var(--st-queued-bd);  background:var(--st-queued-bg);  color:var(--st-queued-fg) }
+.chip--running { border-color:var(--st-running-bd); background:var(--st-running-bg); color:var(--st-running-fg) }
+.chip--review  { border-color:var(--st-review-bd);  background:var(--st-review-bg);  color:var(--st-review-fg) }
+.chip--done    { border-color:var(--st-done-bd);    background:var(--st-done-bg);    color:var(--st-done-fg) }
+.chip--failed  { border-color:var(--st-failed-bd);  background:var(--st-failed-bg);  color:var(--st-failed-fg) }
+.chip--skipped { border-color:var(--st-skipped-bd); background:var(--st-skipped-bg); color:var(--st-skipped-fg) }
+.chip--running::before { animation:pulse 1.6s var(--ease) infinite }
+@keyframes pulse { 50% { opacity:.35 } }
+
+.badge { display:inline-flex; align-items:center; gap:var(--sp-1);
+  padding:2px var(--sp-2); border-radius:var(--r-sm); font-size:var(--fs-3xs);
+  background:var(--surface-2); color:var(--text-3); border:1px solid var(--border-subtle) }
+
+.callout { display:flex; gap:var(--sp-3); padding:var(--sp-4);
+  border-radius:var(--r-md); border:1px solid var(--border);
+  background:var(--surface-2); font-size:var(--fs-xs); line-height:var(--lh-snug) }
+.callout__title { font-weight:600; color:var(--text-1); margin-block-end:var(--sp-1) }
+.callout--info  { border-color:var(--st-running-bd); background:var(--st-running-bg) }
+.callout--warn  { border-color:var(--st-review-bd);  background:var(--st-review-bg) }
+.callout--error { border-color:var(--st-failed-bd);  background:var(--st-failed-bg) }
+.callout--ok    { border-color:var(--st-done-bd);    background:var(--st-done-bg) }
+
+.table { width:100%; border-collapse:collapse; font-size:var(--fs-xs) }
+.table th { text-align:left; font-size:var(--fs-3xs); font-weight:600;
+  text-transform:uppercase; letter-spacing:var(--ls-caps); color:var(--text-3);
+  padding:var(--sp-2) var(--sp-3); border-block-end:1px solid var(--border-subtle) }
+.table td { padding:var(--sp-3); border-block-end:1px solid var(--border-subtle);
+  color:var(--text-2); vertical-align:top }
+.table tr:last-child td { border-block-end:0 }
+.table--dense td { padding:var(--sp-2) var(--sp-3) }
+.table__num { font-family:var(--font-mono); font-variant-numeric:tabular-nums; text-align:right }
+
+.progress { height:4px; border-radius:var(--r-full); background:var(--surface-3); overflow:hidden }
+.progress__bar { height:100%; background:var(--accent); border-radius:inherit;
+  transition:width var(--dur) var(--ease) }
+
+/* The nine-cell pipeline strip. A 66% bar cannot tell you a job is stuck on
+ * `align`; nine cells can, and every cell carries a title for the detail. */
+.stagebar { display:grid; grid-template-columns:repeat(9, 1fr); gap:3px }
+.stagebar__cell { height:6px; border-radius:2px; background:var(--st-pending-bg) }
+.stagebar__cell[data-status="done"]    { background:var(--st-done-fg);    opacity:.8 }
+.stagebar__cell[data-status="running"] { background:var(--st-running-fg); animation:pulse 1.6s var(--ease) infinite }
+.stagebar__cell[data-status="review"]  { background:var(--st-review-fg) }
+.stagebar__cell[data-status="failed"]  { background:var(--st-failed-fg) }
+.stagebar__cell[data-status="skipped"] { background:var(--st-skipped-fg); opacity:.5 }
+
+.empty { display:grid; place-items:center; gap:var(--sp-3); padding:var(--sp-10) var(--sp-6);
+  text-align:center; border:1px dashed var(--border); border-radius:var(--r-lg);
+  background:var(--surface-1) }
+.empty__art { width:44px; height:78px; border:2px solid var(--border-strong);
+  border-radius:var(--r-sm); opacity:.6 }
+.empty__title { font-size:var(--fs-md); font-weight:600; color:var(--text-1) }
+.empty__body { font-size:var(--fs-xs); color:var(--text-3); max-width:46ch; line-height:var(--lh-base) }
+
+.skeleton { position:relative; overflow:hidden; border-radius:var(--r-md);
+  background:var(--surface-2) }
+.skeleton::after { content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent, rgb(255 255 255 / .04), transparent);
+  animation:shimmer 1.4s infinite }
+@keyframes shimmer { 100% { transform:translateX(100%) } }
+.skeleton--text { height:12px; margin-block:var(--sp-2) }
+.skeleton--card { height:132px }
+
+.log { font-family:var(--font-mono); font-size:var(--fs-2xs); line-height:1.65;
+  background:var(--surface-inset); border:1px solid var(--border-subtle);
+  border-radius:var(--r-md); padding:var(--sp-3); max-height:340px; overflow:auto;
+  color:var(--text-3); overscroll-behavior:contain }
+.log__line { white-space:pre-wrap; word-break:break-word }
+
+.toaster { position:fixed; inset-block-end:var(--sp-5); inset-inline-end:var(--sp-5);
+  z-index:60; display:flex; flex-direction:column; gap:var(--sp-2) }
+.toast { padding:var(--sp-3) var(--sp-4); border-radius:var(--r-md);
+  background:var(--surface-3); border:1px solid var(--border);
+  box-shadow:var(--shadow-lg); font-size:var(--fs-xs); color:var(--text-1);
+  max-width:380px; animation:rise var(--dur) var(--ease) }
+.toast--error { border-color:var(--st-failed-bd); background:var(--st-failed-bg) }
+.toast--ok { border-color:var(--st-done-bd); background:var(--st-done-bg) }
+@keyframes rise { from { opacity:0; transform:translateY(6px) } }
+
+dialog { border:0; padding:0; background:transparent; color:inherit }
+dialog::backdrop { background:rgb(4 5 8 / .68); backdrop-filter:blur(3px) }
+.dialog { background:var(--surface-1); border:1px solid var(--border);
+  border-radius:var(--r-xl); box-shadow:var(--shadow-lg);
+  width:min(560px, calc(100vw - var(--sp-8))) }
+.dialog__head { padding:var(--sp-5); border-block-end:1px solid var(--border-subtle) }
+.dialog__body { padding:var(--sp-5) }
+.dialog__foot { padding:var(--sp-4) var(--sp-5); border-block-start:1px solid var(--border-subtle);
+  display:flex; gap:var(--sp-2); justify-content:flex-end }
+
+/* --------------------------------------------------------------- JOB CARDS */
+.joblist { display:grid; gap:var(--sp-3) }
+.jobcard { display:block; padding:var(--sp-4) var(--sp-5); text-decoration:none;
+  background:var(--surface-1); border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg); color:inherit;
+  transition:border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease) }
+.jobcard:hover { border-color:var(--border-strong); background:var(--surface-2) }
+.jobcard__name { font-size:var(--fs-sm); font-weight:600; color:var(--text-1) }
+/* Ten jobs share the slug `deer-flow`, so the source and the time are what
+ * actually tell two rows apart. */
+.jobcard__meta { font-size:var(--fs-2xs); color:var(--text-3) }
+
+/* --------------------------------------------------------------- QUEUE ROW */
+.queuerow { display:flex; align-items:center; gap:var(--sp-4);
+  padding:var(--sp-3) var(--sp-4); background:var(--surface-1);
+  border:1px solid var(--border-subtle); border-radius:var(--r-md) }
+.queuerow__pos { width:26px; height:26px; display:grid; place-items:center; flex:none;
+  border-radius:var(--r-full); background:var(--surface-3); color:var(--text-3);
+  font-family:var(--font-mono); font-size:var(--fs-3xs) }
+.queuerow--running { border-color:var(--st-running-bd); background:var(--st-running-bg) }
+.queuerow--running .queuerow__pos { background:var(--accent); color:var(--text-on-accent) }
+
+/* -------------------------------------------------------------- RESPONSIVE */
+@media (max-width:960px) {
+  .page__body { padding-inline:var(--sp-4) }
+  .shell { padding-inline:var(--sp-4); gap:var(--sp-3) }
+}
+@media (max-width:720px) {
+  .shell__nav .shell__link { padding-inline:var(--sp-2) }
+  .card { padding:var(--sp-4) }
+}
+
+/* ------------------------------------------------------------- WORKBENCH */
+/* job.html: rail / pane / aside. Collapses rather than staying three fixed
+ * columns at any width, which is what makes v1 unusable under ~1050px. */
+.workbench { display:grid; gap:var(--sp-5); align-items:start;
+  grid-template-columns:var(--rail-w) minmax(0,1fr) var(--aside-w) }
+@media (max-width:1320px) { .workbench { grid-template-columns:var(--rail-w) minmax(0,1fr) } 
+  .workbench__aside { grid-column:1 / -1 } }
+@media (max-width:900px)  { .workbench { grid-template-columns:minmax(0,1fr) }
+  .workbench__rail { order:-1 } }
+
+.rail { display:flex; flex-direction:column }
+.rail__item { display:flex; align-items:flex-start; gap:var(--sp-3); width:100%;
+  padding:var(--sp-3) var(--sp-4); background:transparent; border:0; cursor:pointer;
+  text-align:left; color:inherit; border-inline-start:2px solid transparent;
+  border-block-end:1px solid var(--border-subtle);
+  transition:background var(--dur-fast) var(--ease) }
+.rail__item:last-child { border-block-end:0 }
+.rail__item:hover { background:var(--surface-2) }
+.rail__item--on { background:var(--surface-2); border-inline-start-color:var(--accent) }
+.rail__name { display:block; font-size:var(--fs-xs); font-weight:500; color:var(--text-1) }
+.rail__meta { display:block; font-size:var(--fs-3xs); color:var(--text-3) }
+.rail__dot { width:8px; height:8px; margin-block-start:5px; border-radius:var(--r-full);
+  flex:none; background:var(--st-pending-fg) }
+.rail__dot[data-status="running"] { background:var(--st-running-fg);
+  animation:pulse 1.6s var(--ease) infinite }
+.rail__dot[data-status="review"]  { background:var(--st-review-fg) }
+.rail__dot[data-status="done"]    { background:var(--st-done-fg) }
+.rail__dot[data-status="failed"]  { background:var(--st-failed-fg) }
+.rail__dot[data-status="skipped"] { background:var(--st-skipped-fg) }
+
+.shot { width:100%; border-radius:var(--r-md); background:var(--surface-inset) }
+
+/* ------------------------------------------------------------- REEL FRAME */
+/* The stage is literally 1080x1920 CSS px and is scaled by a transform, so
+ * every child is positioned in renderer coordinates: `top:380px` here IS y=380
+ * in the rendered frame. That is what stops the preview drifting from the
+ * renderer, and why nothing in this block does arithmetic. */
+.reelframe { position:relative; aspect-ratio:1080/1920; overflow:hidden;
+  border-radius:var(--r-lg); border:1px solid var(--border);
+  background:var(--reel-ground); user-select:none }
+.rf-stage { position:absolute; inset:0 auto auto 0; width:1080px; height:1920px;
+  transform-origin:0 0 }
+
+.rf-ground { position:absolute; inset:0;
+  --bg:10 11 18; --glow:124 124 248; --support:64 224 208;
+  background:
+    radial-gradient(1180px 1180px at 200px 300px, rgb(var(--glow)/.34), transparent 70%),
+    radial-gradient(880px 880px at 960px 1760px, rgb(var(--support)/.10), transparent 70%),
+    radial-gradient(1420px 1420px at 540px 900px, rgb(30 32 44/.24), transparent 70%),
+    linear-gradient(to bottom, transparent, rgb(0 0 0/.28)),
+    rgb(var(--bg)) }
+
+.rf-media { position:absolute; overflow:hidden; cursor:grab; touch-action:none }
+.rf-media.is-dragging { cursor:grabbing }
+.rf-img { position:absolute; max-width:none; pointer-events:none }
+/* a full-width panel is not rounded -- a rounded corner against the frame edge
+ * reads as a mistake rather than a card -- and takes rules top and bottom */
+.rf-media[data-fit="panel"] { box-shadow:0 -2px 0 rgb(255 255 255/.10), 0 2px 0 rgb(255 255 255/.10) }
+/* the edge fade and bottom scrim the renderer applies to full-bleed images */
+.rf-media[data-fit="full"] {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, var(--mask-opaque) 168px,
+                    var(--mask-opaque) 912px, transparent 1080px),
+    linear-gradient(to bottom, transparent 0, var(--mask-opaque) 300px,
+                    var(--mask-opaque) 1280px, transparent 1920px);
+  -webkit-mask-composite:source-in; mask-composite:intersect }
+.rf-scrim { position:absolute; inset:0; pointer-events:none; background:
+  linear-gradient(to bottom, transparent 1180px, rgb(0 0 0/.25) 1550px, rgb(0 0 0/.82) 1920px),
+  rgb(5 7 10/.16) }
+
+/* what prepare() will centre-crop away, shown rather than discovered later */
+.rf-trim { position:absolute; inset-inline:0; pointer-events:none;
+  outline:3px dashed rgb(240 190 96/.75); outline-offset:-3px }
+.rf-trim::after { content:attr(data-amount); position:absolute; inset-block-start:8px;
+  inset-inline-end:12px; padding:6px 12px; border-radius:8px; font-size:26px;
+  font-weight:600; background:rgb(46 35 18/.92); color:var(--reel-warn) }
+
+.rf-chrome { position:absolute; inset-block-start:0; inset-inline:0; height:5px;
+  background:linear-gradient(90deg, var(--accent) 35%, transparent 35%) }
+
+.rf-eyebrow { position:absolute; inset-inline-start:50%; inset-block-start:252px;
+  transform:translate(-50%,-50%); display:inline-flex; align-items:center; gap:14px;
+  padding:17px 30px; border-radius:999px; border:2px solid rgb(139 139 255/.85);
+  font:700 31px/1 "Inter",sans-serif; letter-spacing:6px; color:var(--reel-ink);
+  white-space:nowrap }
+.rf-eyebrow i { width:12px; height:12px; border-radius:999px; background:var(--accent) }
+
+/* A guide, not invented caption text: at upload time nobody knows which words
+ * land here, and showing fake ones would be a lie about the result. */
+.rf-band { position:absolute; inset-inline:84px; inset-block-start:1450px; height:85px;
+  border:2px dashed rgb(255 255 255/.30); border-radius:12px;
+  background:rgb(255 255 255/.05); color:rgb(255 255 255/.55);
+  font:600 24px/85px "Inter",sans-serif; letter-spacing:4px; text-align:center;
+  text-transform:uppercase }
+
+.rf-safe { position:absolute; inset-block:150px 320px; inset-inline:84px;
+  border:2px dashed rgb(255 255 255/.14); border-radius:8px; pointer-events:none }
+
+.reelframe[data-guides="off"] .rf-safe,
+.reelframe[data-guides="off"] .rf-band { display:none }
+
+/* queue rows carry controls now, so they need room and a settled baseline */
+.queuerow__eta { font-size:var(--fs-2xs); color:var(--text-3); flex:none;
+  white-space:nowrap }
+.queuerow .iconbtn { width:var(--control-h-sm); height:var(--control-h-sm);
+  font-size:var(--fs-2xs) }
+.queuerow .iconbtn:disabled { opacity:.3; cursor:not-allowed }
+.queuerow a { text-decoration:none; color:inherit }
+.queuerow a:hover .jobcard__name { color:var(--accent-text) }
+
+/* the align table marks rows where a segment and a phrase do not pair up */
+.warn { color:var(--st-review-fg) }
+.ok   { color:var(--st-done-fg) }
+audio.shot { height:44px; background:var(--surface-2) }
+
+/* the screenshot being edited, so the list and the preview agree */
+.card[data-selected] { border-color:var(--accent); background:var(--surface-2) }
+
+/* ------------------------------------------------------------------ ICONS */
+/* Sized in em so an icon tracks the text beside it: the same markup reads
+ * correctly in a 13px button and an 11px chip without either knowing. */
+.icon { width:1.15em; height:1.15em; flex:none; vertical-align:-.16em }
+.icon[width] { width:auto; height:auto }
+.btn .icon, .shell__link .icon { margin-inline-end:-2px }
+.iconbtn .icon { margin:0 }
+
+.mark { width:22px; height:22px; color:var(--accent); flex:none }
+.art  { width:56px; height:84px; color:var(--text-3) }
+
+.shell__link { display:inline-flex; align-items:center; gap:var(--sp-2) }
+.shell__link--quiet { color:var(--text-4); font-size:var(--fs-2xs) }
+.shell__mark { gap:var(--sp-2) }
+
+/* The toggle should feel like a control, not a link */
+.iconbtn { transition:background var(--dur-fast) var(--ease),
+                      color var(--dur-fast) var(--ease),
+                      transform var(--dur-fast) var(--ease) }
+.iconbtn:active { transform:scale(.94) }
+
+/* ---------------------------------------------------------------- POLISH */
+/* A page that fades in reads as deliberate; one that appears in pieces as the
+ * fetches land reads as slow, even when it is faster. */
+@keyframes enter { from { opacity:0; transform:translateY(4px) } }
+.page__body > * { animation:enter var(--dur-slow, 240ms) var(--ease) both }
+.page__body > *:nth-child(2) { animation-delay:40ms }
+.page__body > *:nth-child(3) { animation-delay:80ms }
+
+.card { transition:border-color var(--dur-fast) var(--ease),
+                   background var(--dur-fast) var(--ease) }
+.jobcard { position:relative; overflow:hidden }
+/* A hairline that picks up the accent on hover -- enough to say "this is a
+ * target" without a border that shifts the layout. */
+.jobcard::before { content:""; position:absolute; inset-block:0; inset-inline-start:0;
+  width:2px; background:var(--accent); opacity:0; transition:opacity var(--dur-fast) var(--ease) }
+.jobcard:hover::before { opacity:.7 }
+
+.empty__art { width:auto; height:auto; border:0 }
+
+/* Native form controls follow color-scheme, but the arrow on a select does not
+ * inherit the token set, so it is drawn here. */
+.select { appearance:none; padding-inline-end:var(--sp-7);
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
+                   linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 15px) calc(50% + 1px), calc(100% - 10px) calc(50% + 1px);
+  background-size:5px 5px, 5px 5px; background-repeat:no-repeat; color:var(--text-1) }
+
+::-webkit-scrollbar { width:11px; height:11px }
+::-webkit-scrollbar-track { background:transparent }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:var(--r-full);
+  border:3px solid var(--surface-0) }
+::-webkit-scrollbar-thumb:hover { background:var(--border-strong) }
+
+.callout__icon { margin-block-start:1px }
+.callout--info  .callout__icon { color:var(--st-running-fg) }
+.callout--warn  .callout__icon { color:var(--st-review-fg) }
+.callout--error .callout__icon { color:var(--st-failed-fg) }
+.callout--ok    .callout__icon { color:var(--st-done-fg) }
+
+.field__control { display:block; position:relative }
+
+/* A preset is a decision with a trade-off, so it gets room to say what it is
+ * rather than being a button with a slug on it. */
+.choicecard { display:flex; flex-direction:column; gap:var(--sp-2); text-align:left;
+  padding:var(--sp-4); cursor:pointer;
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-md); color:inherit;
+  transition:border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease) }
+.choicecard:hover { border-color:var(--accent); background:var(--surface-3) }
+.choicecard__title { font-size:var(--fs-xs); font-weight:600; color:var(--text-1) }
+.choicecard__body { font-size:var(--fs-2xs); color:var(--text-3); line-height:var(--lh-snug) }
+
+.spinner { width:16px; height:16px; flex:none; border-radius:var(--r-full);
+  border:2px solid var(--border); border-top-color:var(--accent);
+  animation:spin .7s linear infinite }
+@keyframes spin { to { transform:rotate(360deg) } }

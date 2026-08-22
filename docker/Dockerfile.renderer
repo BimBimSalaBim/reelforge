@@ -1,0 +1,51 @@
+# Rendering: storyboard smoke tests, cover art, frames, and the encode.
+#
+# Separate from the app image because this one carries the fonts and pulls in
+# numpy and Pillow work that the API never does -- and because the render worker
+# is the one that runs untrusted generated code, so it gets the tighter runtime.
+FROM python:3.12-slim AS fonts
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates unzip && rm -rf /var/lib/apt/lists/*
+# The script resolves its own directory and writes into ./fonts beside itself.
+COPY docker/fetch-fonts.sh /work/fetch-fonts.sh
+RUN chmod +x /work/fetch-fonts.sh && /work/fetch-fonts.sh
+
+
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt .
+# PyPI reads time out on slow links often enough to fail a build for no reason
+RUN pip install --retries 6 --timeout 120 -r requirements.txt
+
+# Helvetica Neue and Menlo are macOS-only and not redistributable. Inter stands
+# in for the display face; DejaVu Sans Mono for the mono one -- it descends from
+# Bitstream Vera Sans Mono, which is Menlo's ancestor, and unlike JetBrains Mono
+# it carries every symbol the storyboards draw.
+COPY --from=fonts /work/fonts/ /app/docker/fonts/
+
+COPY app/ ./app/
+COPY config.yaml ./config.yaml
+COPY video/ ./video/
+
+RUN useradd --create-home --uid 10001 reelforge \
+    && mkdir -p /app/data/jobs && chown -R reelforge:reelforge /app/data
+USER reelforge
+
+# Fail at build time rather than mid-render if a glyph is missing: a face without
+# the check and arrow characters draws empty boxes and raises nothing.
+RUN python -c "import sys; sys.path.insert(0,'video'); import kit; \
+from app.render.fonts import patch_kit, check_symbols; \
+patch_kit(kit); print('fonts ok:', check_symbols(kit))"
+
+CMD ["celery", "-A", "app.tasks", "worker", "--queues=render", \
+     "--concurrency=2", "--loglevel=info"]

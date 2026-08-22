@@ -1,0 +1,103 @@
+# Screen layouts for the deterministic renderer.
+#
+# Each entry is one screen. `needs` gates it on what the content actually has,
+# so a repo with no install command never draws an empty terminal. `role` pins
+# the opener and the closer; everything else fills the middle by weight.
+#
+# Slot `kind` names an sbkit component. Positions are absolute pixels in the
+# 1080x1920 frame; keep drawn content inside y 150-1600, x 84-996, and above
+# y 1500 when captions are burned in.
+
+# ------------------------------------------------------------------ openers
+- id: hook
+  role: opener
+  weight: 100
+  eyebrow: "@eyebrow"
+  needs: [hook_lines]
+  slots:
+    - {kind: headline, y: 520, size: 84, source: hook_lines, sub: tagline}
+
+- id: hook-with-counter
+  role: opener
+  weight: 60
+  eyebrow: "@eyebrow"
+  needs: [hook_lines, counter]
+  slots:
+    - {kind: headline, y: 430, size: 78, source: hook_lines}
+    - {kind: counter, y: 1080, size: 132, source: counter}
+
+# -------------------------------------------------------------------- body
+# A screenshot is the only screen showing something the pipeline did not draw
+# itself, so it is worth a lot when one exists -- and `needs` means it simply
+# does not exist when none does. Repeats with a variant, so three uploads give
+# three screens rather than the same one three times.
+- id: screenshot
+  eyebrow: "@image_eyebrow"
+  weight: 95
+  needs: [images>=1]
+  repeat_with: images
+  slots:
+    - {kind: image, y: 430, source: images}
+
+- id: stat-trio
+  eyebrow: BY THE NUMBERS
+  weight: 90
+  needs: [stats>=3]
+  slots:
+    - {kind: statcards, y: 470, height: 210, source: stats}
+    - {kind: factlist, y: 760, rows: 5, source: facts}
+
+- id: terminal
+  eyebrow: ONE COMMAND
+  weight: 85
+  needs: [commands]
+  slots:
+    - {kind: terminal, y: 470, height: 220, source: commands}
+    - {kind: tiles, y: 800, rows: 4, source: facts}
+
+- id: point-tiles
+  eyebrow: "@points_eyebrow"
+  weight: 80
+  needs: [points>=2]
+  slots:
+    - {kind: headline, y: 460, size: 72, source: point_lines}
+    - {kind: tiles, y: 760, rows: 4, source: facts}
+
+- id: quote
+  eyebrow: IN ONE LINE
+  weight: 70
+  needs: [quote]
+  slots:
+    - {kind: quote, y: 600, size: 76, source: quote}
+
+- id: stat-focus
+  eyebrow: THE NUMBER
+  weight: 65
+  needs: [stats>=1]
+  slots:
+    - {kind: counter, y: 620, size: 150, source: stats}
+    - {kind: factlist, y: 940, rows: 4, source: facts}
+
+- id: fact-column
+  eyebrow: THE DETAIL
+  weight: 55
+  needs: [facts>=4]
+  slots:
+    - {kind: headline, y: 420, size: 66, source: point_lines}
+    - {kind: factlist, y: 700, rows: 6, source: facts}
+
+# ------------------------------------------------------------------- closer
+- id: endcard
+  role: closer
+  weight: 100
+  slots:
+    - {kind: endcard}
+
+# Always available, so a thin fact bundle never falls back to repeating the
+# opener. Low weight: it is what you get when nothing better applies.
+- id: statement
+  eyebrow: "@eyebrow"
+  weight: 20
+  slots:
+    - {kind: headline, y: 520, size: 72, source: point_lines}
+    - {kind: factlist, y: 840, rows: 3, source: facts}

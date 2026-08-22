@@ -1,0 +1,1425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReelForge</title>
+<style>
+:root{
+  --bg:#0b0c10; --panel:#12141a; --panel2:#171a22; --line:#232734;
+  --ink:#e8eaf0; --muted:#9aa1b1; --dim:#6b7385;
+  --accent:#7c7cf8; --accent2:#40e0d0; --ok:#6ee1b4; --warn:#f0be60; --bad:#ff6070;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent2);text-decoration:none}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel2);
+  color:var(--ink);padding:7px 13px;border-radius:8px}
+button:hover:not(:disabled){border-color:var(--accent);background:#1c2030}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#0b0c10;font-weight:600}
+button.primary:hover:not(:disabled){background:#9494ff}
+button.ghost{background:transparent}
+.ico{vertical-align:-.16em;margin-right:6px;flex:none}
+button .ico,a .ico{margin-right:5px}
+.brand{width:20px;height:20px;color:var(--accent);flex:none}
+.try{text-decoration:none;color:var(--accent2);border-color:#1d4038;
+  background:#0b2b28;transition:border-color .12s,background .12s}
+.try:hover{border-color:var(--accent2);background:#0e3a35}
+input,select,textarea{font:inherit;background:#0e1016;color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:8px 11px;width:100%}
+textarea{font-family:var(--mono);font-size:13px;line-height:1.55;resize:vertical}
+header{display:flex;align-items:center;gap:14px;padding:13px 20px;
+  border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:9}
+header h1{font-size:16px;margin:0;letter-spacing:.4px}
+header h1 span{color:var(--accent)}
+.pill{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);
+  border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+.layout{display:grid;grid-template-columns:270px 1fr 350px;gap:0;height:calc(100vh - 53px)}
+.col{overflow-y:auto;padding:16px}
+.col+.col{border-left:1px solid var(--line)}
+h2{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);
+  margin:0 0 10px;font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:13px;margin-bottom:10px}
+.job{cursor:pointer}
+.job:hover{border-color:var(--accent)}
+.job.sel{border-color:var(--accent);background:#161a26}
+.job .slug{font-weight:600}
+.job .meta{font-size:12px;color:var(--dim);margin-top:3px}
+.bar{height:4px;background:#1c2030;border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.stage{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;
+  border:1px solid transparent;cursor:pointer}
+.stage:hover{background:var(--panel2)}
+.stage.sel{background:var(--panel2);border-color:var(--line)}
+.dot{width:9px;height:9px;border-radius:99px;background:#2b3040;flex:none}
+.dot.running{background:var(--accent);animation:pulse 1.1s infinite}
+.dot.done{background:var(--ok)} .dot.review{background:var(--warn)}
+.dot.failed{background:var(--bad)} .dot.skipped{background:var(--dim)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.stage .name{flex:1}
+.stage .t{font-size:11px;color:var(--dim);font-family:var(--mono)}
+.log{font-family:var(--mono);font-size:12px;line-height:1.65;color:var(--muted);
+  background:#0e1016;border:1px solid var(--line);border-radius:8px;padding:11px;
+  max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px}
+.kv dt{color:var(--dim)} .kv dd{margin:0;font-family:var(--mono);font-size:12px}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.row.mb{margin-bottom:11px}
+.grow{flex:1}
+.err{color:var(--bad);font-size:13px;background:#2a1418;border:1px solid #4a2028;
+  border-radius:8px;padding:10px;white-space:pre-wrap;font-family:var(--mono);font-size:12px}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .muted{color:var(--muted)}
+.small{font-size:12px}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px}
+.field{margin-bottom:11px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:11px;background:#1c2030;border:1px solid var(--line);
+  border-radius:6px;padding:3px 8px}
+img.shot,video{max-width:100%;border-radius:8px;border:1px solid var(--line);display:block}
+table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+td,th{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:500}
+.empty{color:var(--dim);text-align:center;padding:36px 12px;font-size:13px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hp{display:flex;align-items:center;gap:7px;font-size:12px;padding:5px 0}
+.hp .d{width:7px;height:7px;border-radius:99px;background:var(--bad)}
+.hp .d.up{background:var(--ok)}
+.tabs{display:flex;gap:4px;margin-bottom:11px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
+  padding:7px 11px;color:var(--dim);font-size:12px;letter-spacing:.6px;text-transform:uppercase}
+.tab:hover{color:var(--ink);background:none;border-color:var(--line)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tab .n{opacity:.6;margin-left:5px}
+.job.arch{opacity:.72}
+.md{font-size:14px;line-height:1.65}
+.md h1{font-size:19px;margin:0 0 10px}
+.md h2{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);
+  margin:20px 0 8px;font-weight:600}
+.md p{margin:0 0 10px}
+.md ul{margin:0 0 10px;padding-left:19px}
+.md li{margin-bottom:4px}
+.md code{font-family:var(--mono);font-size:12px;background:#0e1016;
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.md pre{background:#0e1016;border:1px solid var(--line);border-radius:8px;padding:11px;
+  overflow-x:auto;margin:0 0 12px;position:relative}
+.md pre code{background:none;border:none;padding:0;white-space:pre-wrap;word-break:break-word}
+.md pre button{position:absolute;top:7px;right:7px;padding:3px 9px;font-size:11px}
+.md strong{color:var(--ink)}
+.md hr{border:none;border-top:1px solid var(--line);margin:16px 0}
+.job .acts{display:flex;gap:5px;margin-top:8px}
+.job .acts button{padding:3px 8px;font-size:11px}
+.sec{margin-bottom:18px}
+.sec>h3{font-size:13px;margin:0 0 4px;font-weight:600}
+.sec>p{margin:0 0 10px;font-size:12px;color:var(--dim);max-width:640px}
+.prof{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);
+  border-radius:8px;margin-bottom:7px;background:var(--panel2)}
+.prof.on{border-color:var(--accent)}
+.prof .nm{font-weight:600;min-width:120px}
+.prof .ad{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:82px}
+.prof .md{font-family:var(--mono);font-size:11px;color:var(--muted);flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:10px;letter-spacing:.6px;text-transform:uppercase;padding:2px 7px;
+  border-radius:99px;border:1px solid var(--line);color:var(--dim)}
+.badge.ok{color:var(--ok);border-color:#1d4038}
+.badge.bad{color:var(--bad);border-color:#4a2028}
+.badge.warn{color:var(--warn);border-color:#4a3a18}
+.preset{display:block;width:100%;text-align:left;padding:11px 13px;margin-bottom:7px}
+.preset.on{border-color:var(--accent);background:#161a26}
+.preset b{display:block;margin-bottom:3px}
+.preset span{font-size:12px;color:var(--dim);font-weight:400}
+.cropview{position:relative;overflow:hidden;border-radius:10px;
+  border:1px solid #2a2f3a;background:#0b0d12;flex:0 0 auto;cursor:grab;
+  touch-action:none;user-select:none}
+.cropview:active{cursor:grabbing}
+.cropview img{position:absolute;max-width:none;pointer-events:none}
+.gates{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.gate{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line);
+  border-radius:7px;cursor:pointer;font-size:13px;background:var(--panel2)}
+.gate.on{border-color:var(--warn);color:var(--warn)}
+.gate input{width:auto;margin:0}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;
+  justify-content:center;z-index:50}
+.modal .card{max-width:520px;width:92%;margin:0;max-height:86vh;overflow-y:auto}
+</style>
+</head>
+<body>
+<header>
+  <svg class="brand" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3" y="2" width="18" height="20" rx="5" stroke="currentColor" stroke-width="2"/>
+    <path d="M10 8.5l5.5 3.5L10 15.5z" fill="currentColor"/>
+  </svg>
+  <h1>Reel<span>Forge</span></h1>
+  <span class="pill" id="executor">…</span>
+  <span class="pill" id="queuecount">…</span>
+  <div class="grow"></div>
+  <a class="pill try" href="/v2/" title="The newer interface">Try v2 &rarr;</a>
+  <button class="ghost" id="btn-settings" onclick="showSettings()">Settings</button>
+  <button class="primary" id="btn-new" onclick="showNew()">New reel</button>
+</header>
+
+<div class="layout">
+  <div class="col" id="jobs">
+    <div class="tabs">
+      <button class="tab on" id="tab-current" onclick="showTab('current')">Jobs</button>
+      <button class="tab" id="tab-archived" onclick="showTab('archived')">Archive</button>
+    </div>
+    <div id="joblist"></div>
+  </div>
+  <div class="col" id="main"></div>
+  <div class="col" id="side"></div>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+const api = async (p,o={}) => {
+  const r = await fetch(p,o);
+  const ct = r.headers.get('content-type')||'';
+  const body = ct.includes('json') ? await r.json() : await r.text();
+  if(!r.ok) throw new Error(typeof body==='string'?body:(body.detail?JSON.stringify(body.detail):r.statusText));
+  return body;
+};
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* Inline SVG, kept in this file rather than loaded from /v2/static.
+ *
+ * This UI is the fallback: if v2 is broken, this must still work, and pointing
+ * it at v2's assets would make one failure take both down. The handful of paths
+ * duplicated below is the price of that independence, and it is the right way
+ * round.
+ */
+const ICONS = {
+  plus:"M12 5v14M5 12h14",
+  settings:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H7a1.7 1.7 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 2.6a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V7a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
+  play:"M5 3l14 9-14 9V3z",
+  check:"M20 6L9 17l-5-5",
+  refresh:"M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15",
+  download:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+  upload:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  spark:"M12 3l2.2 5.4L20 10l-5.8 1.6L12 17l-2.2-5.4L4 10l5.8-1.6z",
+  film:"M3 4h18v16H3zM7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4",
+  save:"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8",
+};
+function ico(name,size){
+  return `<svg class="ico" viewBox="0 0 24 24" width="${size||15}" height="${size||15}"
+    fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
+    stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]||ICONS.spark}"/></svg>`;
+}
+
+const STAGES = ['ingest','content','cover','audio','align','storyboard','render','verify','package'];
+
+let state = {jobs:[], job:null, stage:null, es:null, lines:[]};
+
+// ---------------------------------------------------------------- jobs ---
+state.tab = 'current';
+
+function showTab(which){ state.tab = which; loadJobs(); }
+
+async function loadJobs(){
+  const archived = state.tab === 'archived';
+  const [jobs, counts] = await Promise.all([
+    api('/api/jobs?archived=' + archived), api('/api/jobs/counts')]);
+  state.jobs = jobs;
+
+  $('#tab-current').innerHTML  = `Jobs <span class="n">${counts.current}</span>`;
+  $('#tab-archived').innerHTML = `Archive <span class="n">${counts.archived}</span>`;
+  $('#tab-current').className  = 'tab' + (archived?'':' on');
+  $('#tab-archived').className = 'tab' + (archived?' on':'');
+
+  const el = $('#joblist');
+  if(!jobs.length){
+    el.innerHTML = archived
+      ? '<div class="empty">Nothing archived.<br>Archiving keeps a job and everything it produced, just out of the way.</div>'
+      : '<div class="empty">No jobs yet.<br>Start one with <b>New reel</b>.</div>';
+    return;
+  }
+  el.innerHTML = jobs.map(j=>`
+    <div class="card job ${archived?'arch':''} ${state.job&&state.job.id===j.id?'sel':''}">
+      <div onclick="openJob('${j.id}')">
+        <div class="slug">${esc(j.slug)}</div>
+        <div class="meta">${j.failed_stage?`<span class="warn">failed at ${j.failed_stage}</span>`
+          : j.next_stage?`next: ${j.next_stage}`:'<span class="ok">complete</span>'}</div>
+        <div class="bar"><i style="width:${Math.round(j.progress*100)}%"></i></div>
+      </div>
+      <div class="acts">
+        ${archived
+          ? `<button onclick="event.stopPropagation();unarchiveJob('${j.id}')">Restore</button>
+             <button onclick="event.stopPropagation();deleteJob('${j.id}','${esc(j.slug)}')">Delete</button>`
+          : `<button onclick="event.stopPropagation();archiveJob('${j.id}')">Archive</button>`}
+      </div>
+    </div>`).join('');
+}
+
+async function archiveJob(id){
+  await api(`/api/jobs/${id}/archive`,{method:'POST'});
+  if(state.job && state.job.id===id){ state.job=null; $('#main').innerHTML=''; $('#side').innerHTML=''; }
+  loadJobs();
+}
+async function unarchiveJob(id){
+  await api(`/api/jobs/${id}/unarchive`,{method:'POST'});
+  loadJobs();
+}
+async function deleteJob(id, slug){
+  // deletion also removes the rendered video and the platform copy, so it is
+  // the one action here that cannot be undone
+  if(!confirm(`Delete "${slug}" and everything it produced?\n\nThe video, cover and platform copy go too. This cannot be undone — Archive keeps them.`)) return;
+  await api(`/api/jobs/${id}`,{method:'DELETE'});
+  if(state.job && state.job.id===id){ state.job=null; $('#main').innerHTML=''; $('#side').innerHTML=''; }
+  loadJobs();
+}
+
+async function openJob(id, stage){
+  state.job = await api('/api/jobs/'+id);
+  state.stage = stage || state.job.failed_stage || state.job.next_stage || 'package';
+  // Seed from the job's own log rather than starting blank. It is written to
+  // disk by every stage, so history is there even when the event stream is
+  // not -- the panel used to read "(idle)" through an entire running stage.
+  state.lines = (state.job.log||[]).slice(-60);
+  await loadJobs();
+  renderJob();
+  connect(id);
+}
+
+function stageState(name){ return (state.job.stages||[]).find(s=>s.stage===name) || {status:'pending',artifacts:{},meta:{}}; }
+
+function renderJob(){
+  const j = state.job;
+  $('#side').innerHTML = `
+    <h2>Pipeline</h2>
+    ${STAGES.map(name=>{const s=stageState(name);return `
+      <div class="stage ${state.stage===name?'sel':''}" onclick="selectStage('${name}')">
+        <span class="dot ${s.status}"></span>
+        <span class="name">${name}</span>
+        <span class="t">${s.duration_seconds!=null?s.duration_seconds+'s':''}</span>
+      </div>`;}).join('')}
+    <div class="row mb" style="margin-top:12px">
+      <button class="primary grow" onclick="runPipeline()">${ico('play')}Run to next gate</button>
+      <button onclick="retryStage()">${ico('refresh')}Retry ${esc(state.stage)}</button>
+    </div>
+    <h2>Activity</h2>
+    <div class="log" id="log">${state.lines.map(esc).join('\n')||'(no activity recorded yet)'}</div>
+    ${runningStage()?`<div class="small muted" style="margin-top:6px">
+      <span class="dot running" style="display:inline-block"></span>
+      ${esc(runningStage())} is running${elapsedNote()} — long stages can be quiet
+      between steps</div>`:''}`;
+  renderMain();
+}
+
+function selectStage(name){ state.stage=name; renderJob(); }
+
+function runningStage(){
+  const s = (state.job.stages||[]).find(x=>x.status==='running');
+  return s ? s.stage : null;
+}
+function elapsedNote(){
+  const t = state.job.updated_at ? Date.parse(state.job.updated_at) : null;
+  if(!t) return '';
+  const secs = Math.round((Date.now()-t)/1000);
+  return secs > 5 ? ` (${secs < 120 ? secs+'s' : Math.round(secs/60)+'m'} since last update)` : '';
+}
+
+// ------------------------------------------------------------ main pane --
+async function renderMain(){
+  const j=state.job, name=state.stage, s=stageState(name);
+  let html = `<div class="row mb">
+      <div class="grow"><h2 style="margin:0">${esc(j.slug)} · ${esc(name)}</h2>
+      <div class="small muted">${esc(j.source.url||'')} · template ${esc(j.template)}</div></div>
+      ${s.status==='review'?`<button class="primary" onclick="approve('${name}')">${ico('check')}Approve &amp; continue</button>`:''}
+      <button onclick="changeTemplate()">Template: ${esc(j.template)}</button>
+      <button onclick="toggleCaptions()">Captions: ${j.captions?'burned in':'off'}</button>
+      <button onclick="cycleFactCheck()">Facts: ${esc(j.fact_check||'strict')}</button>
+      <button onclick="openJob(state.job.id,'images')">Screenshots: ${(j.images||[]).length}</button>
+      <button onclick="changeJobModel()">Model: ${esc((j.resolved.content||{}).profile||'default')}</button>
+      ${j.archived?`<button onclick="unarchiveJob('${j.id}')">Restore from archive</button>`
+                  :`<button onclick="archiveJob('${j.id}')">Archive</button>`}
+    </div>
+    ${j.archived?'<div class="card small muted">Archived — kept with all its artefacts, hidden from the Jobs list.</div>':''}`;
+  if(s.error) html += `<div class="err">${esc(s.error)}</div>`;
+  if(j.resolved && j.resolved.content) html += `<div class="card small muted">
+    This job will use
+    <b>${esc(j.resolved.content.profile)}</b> (${esc(j.resolved.content.model||'')})
+    for the script${j.resolved.storyboard && j.resolved.storyboard.profile!==j.resolved.content.profile
+      ? `, <b>${esc(j.resolved.storyboard.profile)}</b> for the storyboard`:''},
+    and <b>${esc(j.resolved.voice.profile)}</b> for narration
+    &mdash; ${esc(j.resolved.content.source)}.
+    Older lines in the activity log may name a provider used on a previous run.</div>`;
+  if(s.blocked_by&&s.blocked_by.length) html += `<div class="card small muted">Blocked by: ${s.blocked_by.join(', ')}</div>`;
+
+  const panes = {content:paneContent, audio:paneAudio, align:paneAlign,
+                 storyboard:paneStoryboard, cover:paneCover, render:paneRender,
+                 verify:paneVerify, package:panePackage, ingest:paneMeta,
+                 images:paneImages};
+  $('#main').innerHTML = html + '<div id="pane"></div>';
+  try{ await (panes[name]||paneMeta)(s); }
+  catch(e){ $('#pane').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+function metaCard(s){
+  const m=s.meta||{};
+  const rows=Object.entries(m).filter(([k,v])=>typeof v!=='object'||v===null)
+    .map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(JSON.stringify(v)).slice(0,120)}</dd>`).join('');
+  return rows?`<div class="card"><dl class="kv">${rows}</dl></div>`:'';
+}
+async function paneMeta(s){ $('#pane').innerHTML = metaCard(s) || '<div class="empty">Nothing yet.</div>'; }
+
+// In warn mode nothing has failed, so the findings only exist if they are put
+// somewhere a person looks. This is that place.
+function factsCard(s){
+  const f = (s.meta||{}).facts;
+  if(!f) return '';
+  const mode = (s.meta||{}).fact_check || 'strict';
+  const bad = f.unsourced||[];
+  if(!bad.length) return `<div class="card"><b>Facts</b>
+    <div class="small muted" style="margin-top:6px">All ${f.total} number(s) trace
+    &mdash; ${f.api} from the API, ${f.readme} from the project's README.
+    ${f.spoken_checked||0} spelled-out figure(s) checked in the narration.</div></div>`;
+  return `<div class="card" style="border-color:#7a4a1a">
+    <div class="row mb"><b class="grow">Facts &mdash; ${bad.length} number(s) do not trace</b>
+      <span class="tag">${esc(mode)}</span></div>
+    <table>${bad.map(b=>`<tr><th style="white-space:nowrap">${esc(b.value)}</th>
+      <td class="small muted">${esc(b.context)}</td></tr>`).join('')}</table>
+    <div class="small muted" style="margin-top:8px">Neither the GitHub/HF API nor the
+    project's own README states these. ${mode==='strict'
+      ? 'Strict mode already sent them back to the model; these survived that.'
+      : 'Check each one before approving, or edit the narration above.'}</div></div>`;
+}
+
+async function paneContent(s){
+  if(s.status==='pending'){ $('#pane').innerHTML='<div class="empty">Not generated yet.</div>'; return; }
+  const c = await api(`/api/jobs/${state.job.id}/content`);
+  $('#pane').innerHTML = metaCard(s) + factsCard(s) + `
+    <div class="card">
+      <div class="row mb"><b class="grow">Narration — ${c.phrases.length} phrases, ${c.phrases.reduce((a,p)=>a+p.text.split(' ').length,0)} words</b>
+        <button onclick="saveContent()">Save &amp; re-run from here</button></div>
+      <textarea id="phrases" rows="12">${esc(c.phrases.map(p=>p.scene_index+' | '+p.text).join('\n'))}</textarea>
+      <div class="small muted" style="margin-top:6px">One phrase per line, as <code>scene | text</code>. Each becomes one caption group.</div>
+    </div>
+    <div class="split">
+      <div class="card"><b>Fact sheet</b><table>${c.fact_sheet.map(r=>`<tr><th>${esc(r.label)}</th><td>${esc(r.value)}</td></tr>`).join('')}</table></div>
+      <div class="card"><b>Cover</b>
+        <dl class="kv" style="margin-top:8px">
+          <dt>hook</dt><dd>${c.cover.hook.map(esc).join(' / ')}</dd>
+          <dt>stats</dt><dd>${c.cover.stats.map(x=>x.join(' ')).map(esc).join(' · ')}</dd>
+          <dt>cmd</dt><dd>${esc(c.cover.cmd)}</dd>
+          <dt>motif</dt><dd>${esc(c.cover.motif)}</dd>
+        </dl>
+        <div class="tags" style="margin-top:9px">${c.hashtags.map(h=>`<span class="tag">${esc(h)}</span>`).join('')}</div>
+      </div>
+    </div>
+    <div class="card"><b>Accuracy notes</b><ul class="small muted">${(c.accuracy_notes||[]).map(n=>`<li>${esc(n)}</li>`).join('')}</ul></div>`;
+  window._content = c;
+}
+
+async function saveContent(){
+  const c = window._content;
+  const lines = $('#phrases').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  c.phrases = lines.map(l=>{const [a,...rest]=l.split('|');
+    return {text:rest.join('|').trim()||a.trim(), scene_index:parseInt(a)||1, pause_after_ms:300};});
+  try{
+    const r = await api(`/api/jobs/${state.job.id}/content`,{method:'PUT',
+      headers:{'content-type':'application/json'}, body:JSON.stringify(c)});
+    note(`saved: ${r.phrases} phrases; invalidated ${r.invalidated.join(', ')||'nothing'}`);
+    openJob(state.job.id, 'content');
+  }catch(e){ alert('Could not save: '+e.message); }
+}
+
+async function paneAudio(s){
+  const providers = await api('/api/config/providers');
+  const opts = providers.tts.providers.map(p=>
+    `<option value="${p.provider}" ${state.job.providers.tts_provider===p.provider?'selected':''}
+      ${p.reachable?'':'disabled'}>${p.provider}${p.reachable?'':' (unreachable)'}</option>`).join('');
+  const el = providers.tts.providers.find(p=>p.provider==='elevenlabs');
+  $('#pane').innerHTML = metaCard(s) + `
+    <div class="card">
+      <div class="field"><label>Provider</label><select id="ttsprov">${opts}</select></div>
+      <div class="field"><label>Upload a narration file instead</label>
+        <input type="file" id="audiofile" accept="audio/*"></div>
+      <div class="row"><button class="primary" onclick="doAudio()">${ico('upload')}Use this</button></div>
+    </div>
+    ${el&&el.credits?`<div class="card small"><b>ElevenLabs keys</b>
+      <table>${(el.voices||[]).length?'':''}</table>
+      <div class="muted">${esc(JSON.stringify(el.credits))}</div></div>`:''}
+    ${s.artifacts&&s.artifacts.audio?`<div class="card"><b>Narration</b>
+      <audio controls style="width:100%;margin-top:8px"
+        src="/api/jobs/${state.job.id}/artifacts/${s.artifacts.audio}"></audio></div>`:''}`;
+}
+
+async function doAudio(){
+  const f = $('#audiofile').files[0];
+  if(f){
+    const fd = new FormData(); fd.append('file', f);
+    await api(`/api/jobs/${state.job.id}/audio`,{method:'POST',body:fd});
+    note('narration uploaded');
+  }
+  await api(`/api/jobs/${state.job.id}/run`,{method:'POST',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({stage:'audio'})});
+  note('audio stage queued');
+}
+
+async function paneAlign(s){
+  let view=null;
+  try{ view = await api(`/api/jobs/${state.job.id}/alignment`); }catch(e){}
+  $('#pane').innerHTML = metaCard(s) + (view?`
+    <div class="card">
+      <div class="row mb"><b class="grow">${view.detected} detected segments · ${view.phrases} phrase lines</b>
+        <span class="${view.matched?'ok':'warn'}">${view.matched?'matched':'needs reconciling'}</span></div>
+      ${view.matched?'':`<div class="small muted" style="margin-bottom:8px">
+        The narration did not split where the script expects. Edit the lines below so each
+        one matches a detected segment, then save.</div>
+        <textarea id="phraselines" rows="12">${esc(view.rows.filter(r=>r.phrase).map(r=>r.phrase).join('\n'))}</textarea>
+        <div class="row" style="margin-top:8px"><button class="primary" onclick="savePhrases()">${ico('save')}Save phrase split</button></div>`}
+      <table style="margin-top:10px"><tr><th>#</th><th>start</th><th>end</th><th>dur</th><th>phrase</th></tr>
+        ${view.rows.map(r=>`<tr><td>${r.index}</td><td>${r.start??'—'}</td><td>${r.end??'—'}</td>
+          <td>${r.duration??'—'}</td><td>${esc(r.phrase??'(no line)')}</td></tr>`).join('')}</table>
+    </div>`:'<div class="empty">Alignment has not run yet.</div>');
+}
+async function savePhrases(){
+  const lines = $('#phraselines').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  await api(`/api/jobs/${state.job.id}/phrases`,{method:'PUT',
+    headers:{'content-type':'application/json'},body:JSON.stringify(lines)});
+  note('phrase split saved'); openJob(state.job.id,'align');
+}
+
+async function paneStoryboard(s){
+  let src='';
+  try{ src = await api(`/api/jobs/${state.job.id}/storyboard`); }catch(e){}
+  const frames = (s.meta&&s.meta.frames)||[];
+  $('#pane').innerHTML = metaCard(s) + `
+    ${(s.meta&&s.meta.attempts)?`<div class="card small"><b>Attempts</b>
+      ${s.meta.attempts.map(a=>`<div class="hp"><span class="d ${a.ok?'up':''}"></span>
+        attempt ${a.attempt} · ${a.stage} · ${a.ok?'accepted':(a.problems||[]).length+' problem(s)'}</div>
+        ${(a.problems||[]).slice(0,3).map(p=>`<div class="muted" style="margin-left:14px">${esc(String(p).slice(0,220))}</div>`).join('')}`).join('')}
+      </div>`:''}
+    ${src?`<div class="card"><div class="row mb"><b class="grow">storyboard source</b>
+      <button onclick="saveStoryboard()">Save &amp; re-check</button></div>
+      <textarea id="sbsrc" rows="20">${esc(src)}</textarea></div>`:''}`;
+}
+async function saveStoryboard(){
+  try{
+    const r = await api(`/api/jobs/${state.job.id}/storyboard`,{method:'PUT',
+      headers:{'content-type':'text/plain'},body:$('#sbsrc').value});
+    note(r.ok?'storyboard accepted':'problems: '+r.problems.join(' | '));
+  }catch(e){ alert(e.message); }
+}
+
+async function paneCover(s){
+  const a=s.artifacts||{};
+  $('#pane').innerHTML = metaCard(s) + (a.cover?
+    `<div class="card"><img class="shot" src="/api/jobs/${state.job.id}/artifacts/${a.cover}?t=${Date.now()}"></div>`
+    :'<div class="empty">No cover yet.</div>');
+}
+
+async function paneRender(s){
+  const a=s.artifacts||{};
+  $('#pane').innerHTML = metaCard(s) + (a.video?
+    `<div class="card"><video controls src="/api/jobs/${state.job.id}/artifacts/${a.video}"></video></div>`
+    :'<div class="empty">Not rendered yet.</div>');
+}
+
+async function paneVerify(s){
+  const a=s.artifacts||{};
+  let rep=null;
+  if(a.verify){ try{ rep = await api(`/api/jobs/${state.job.id}/artifacts/${a.verify}`);}catch(e){} }
+  $('#pane').innerHTML = (rep?`<div class="card">
+      <b>${rep.ok?'<span class="ok">All checks passed</span>':'<span class="warn">Checks failed</span>'}</b>
+      <table style="margin-top:8px">${rep.checks.map(c=>`<tr>
+        <td class="${c.ok?'ok':'warn'}">${c.ok?'ok':'FAIL'}</td><th>${esc(c.name)}</th>
+        <td>${esc(c.expected)}</td><td>${esc(c.actual)}</td></tr>`).join('')}</table></div>`:'')
+    + (a.contact?`<div class="card"><b>Safe areas</b>
+      <div class="small muted" style="margin:4px 0 8px">magenta = Reels chrome, blue = Shorts chrome</div>
+      <img class="shot" src="/api/jobs/${state.job.id}/artifacts/${a.contact}?t=${Date.now()}"></div>`:'');
+}
+
+// Just enough Markdown for the delivery notes: headings, fenced blocks with a
+// copy button, lists, inline code and bold. The fenced blocks are the point --
+// they hold the YouTube title and description meant to be pasted into a form.
+function renderMarkdown(src){
+  const blocks = [];
+  src = src.replace(/```[a-z]*\n([\s\S]*?)```/g, (_, code) => {
+    blocks.push(code.replace(/\n$/, ''));
+    return `\u0000BLOCK${blocks.length - 1}\u0000`;
+  });
+  const inline = t => esc(t)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+             '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  const out = [];
+  let list = null;
+  for(const raw of src.split('\n')){
+    const line = raw.trimEnd();
+    const block = line.match(/^\u0000BLOCK(\d+)\u0000$/);
+    if(block){
+      if(list){ out.push(`<ul>${list.join('')}</ul>`); list = null; }
+      const i = Number(block[1]);
+      out.push(`<pre><button onclick="copyBlock(this)">Copy</button><code>${esc(blocks[i])}</code></pre>`);
+      continue;
+    }
+    if(/^#{1,6}\s/.test(line)){
+      if(list){ out.push(`<ul>${list.join('')}</ul>`); list = null; }
+      const level = line.match(/^#+/)[0].length;
+      out.push(`<h${Math.min(level,3)}>${inline(line.replace(/^#+\s*/,''))}</h${Math.min(level,3)}>`);
+    } else if(/^[-*]\s/.test(line)){
+      (list ||= []).push(`<li>${inline(line.replace(/^[-*]\s*/,''))}</li>`);
+    } else if(!line.trim()){
+      if(list){ out.push(`<ul>${list.join('')}</ul>`); list = null; }
+    } else {
+      if(list){ out.push(`<ul>${list.join('')}</ul>`); list = null; }
+      out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  if(list) out.push(`<ul>${list.join('')}</ul>`);
+  return out.join('');
+}
+
+function copyBlock(btn){
+  const text = btn.parentElement.querySelector('code').textContent;
+  navigator.clipboard.writeText(text).then(
+    ()=>{ btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy',1400); },
+    ()=>{ btn.textContent='Copy failed'; });
+}
+
+async function panePackage(s){
+  const a=s.artifacts||{};
+  const files=['instagram','youtube','facebook','linkedin'];
+  $('#pane').innerHTML = metaCard(s) + (a.bundle?`
+    <div class="card"><b>Delivery</b><div class="row" style="margin-top:9px">
+      <a href="/api/jobs/${state.job.id}/artifacts/${a.bundle}"><button class="primary">${ico('download')}Download bundle</button></a>
+      ${a.notes?`<a href="/api/jobs/${state.job.id}/artifacts/${a.notes}"><button>Notes</button></a>`:''}
+    </div></div>
+    <div class="card"><div class="row mb"><b class="grow">Delivery notes</b>
+      ${a.notes?`<a href="/api/jobs/${state.job.id}/artifacts/${a.notes}" download><button>Download .md</button></a>`:''}
+    </div><div class="md" id="notes">loading…</div></div>
+    ${files.map(p=>`<div class="card"><div class="row mb"><b class="grow">${p}</b>
+      <button onclick="copyMeta('${p}')">Copy</button></div>
+      <textarea id="meta-${p}" rows="7" readonly>loading…</textarea></div>`).join('')}`
+    :'<div class="empty">Not packaged yet.</div>');
+
+  if(a.notes){
+    try{
+      const md = await api(`/api/jobs/${state.job.id}/artifacts/${a.notes}`);
+      $('#notes').innerHTML = renderMarkdown(typeof md === 'string' ? md : JSON.stringify(md));
+    }catch(e){ $('#notes').textContent = 'could not load the notes: ' + e.message; }
+  }
+  for(const p of files){
+    try{
+      const t = await api(`/api/jobs/${state.job.id}/artifacts/out/metadata/${p}.txt`);
+      const el=$('#meta-'+p); if(el) el.value = t;
+    }catch(e){}
+  }
+}
+function copyMeta(p){ const el=$('#meta-'+p); el.select(); document.execCommand('copy'); note(p+' copied'); }
+
+// ------------------------------------------------------------- actions ---
+async function runPipeline(){
+  const r = await api(`/api/jobs/${state.job.id}/run`,{method:'POST',
+    headers:{'content-type':'application/json'},body:'{}'});
+  note('queued ('+r.executor+')');
+}
+async function retryStage(){
+  await api(`/api/jobs/${state.job.id}/stages/${state.stage}/retry`,{method:'POST'});
+  note('retrying '+state.stage);
+}
+async function changeJobModel(){
+  const profiles = await api('/api/config/profiles');
+  const cur = (state.job.resolved.content||{}).profile;
+  const d = modal(`<h2>Model for this job</h2>
+    <div class="small muted" style="margin-bottom:11px">Overrides the active
+      profile for this job only. Clear it to follow the Settings routing.</div>
+    <button class="preset ${state.job.providers.llm_provider?'':'on'}"
+      onclick="setJobModel('')"><b>Follow settings${
+        state.job.providers.llm_provider?'':' &middot; current'}</b>
+      <span>Currently resolves to ${esc(cur||'-')}</span></button>
+    ${profiles.llm.providers.map(p=>`<button class="preset ${
+      state.job.providers.llm_provider===p.provider?'on':''}"
+      onclick="setJobModel('${p.provider}')">
+      <b>${esc(p.provider)}${state.job.providers.llm_provider===p.provider?' &middot; current':''}</b>
+      <span>${esc(p.model||p.adapter)}</span></button>`).join('')}
+    <div class="row"><button onclick="this.closest('.modal').remove()">Cancel</button></div>`);
+}
+
+async function setJobModel(profile){
+  try{
+    await api(`/api/jobs/${state.job.id}`,{method:'PATCH',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({llm_provider: profile || ''})});
+    document.querySelectorAll('.modal').forEach(m=>m.remove());
+    openJob(state.job.id, state.stage);
+  }catch(e){ alert(e.message); }
+}
+
+async function changeTemplate(){
+  const templates = await api('/api/templates');
+  const d = modal(`<h2>Template</h2>
+    <div class="small muted" style="margin-bottom:11px">Changing this re-runs the
+      storyboard and everything after it. The narration and its alignment are kept.</div>
+    ${templates.map(t=>`<button class="preset ${t.name===state.job.template?'on':''}"
+      onclick="applyTemplate('${t.name}')">
+      <b>${esc(t.title)}${t.name===state.job.template?' &middot; current':''}</b>
+      <span>${esc(t.description)}</span></button>`).join('')}
+    <div class="row"><button onclick="this.closest('.modal').remove()">Cancel</button></div>`);
+}
+
+async function applyTemplate(name){
+  try{
+    await api(`/api/jobs/${state.job.id}`,{method:'PATCH',
+      headers:{'content-type':'application/json'}, body:JSON.stringify({template:name})});
+    document.querySelectorAll('.modal').forEach(m=>m.remove());
+    openJob(state.job.id, 'storyboard');
+  }catch(e){ alert(e.message); }
+}
+
+async function approve(name){
+  await api(`/api/jobs/${state.job.id}/stages/${name}/approve`,{method:'POST'});
+  note(name+' approved'); openJob(state.job.id);
+}
+
+// -------------------------------------------------------------- events ---
+function connect(id){
+  if(state.es) state.es.close();
+  state.es = new EventSource(`/api/jobs/${id}/events`);
+  state.es.addEventListener('progress', e=>{
+    let d; try{ d=JSON.parse(e.data);}catch(_){return;}
+    if(d.type==='heartbeat') return;
+    if(d.type==='progress') note(`${d.stage}: ${d.message}`);
+    else if(d.type==='stage'){ note(`— ${d.stage} ${d.status}${d.error?': '+d.error.slice(0,200):''}`); refresh(); }
+    else if(d.type==='pipeline'){ note(`pipeline ${d.status}`); refresh(); }
+    else if(d.type==='poll'){
+      for(const line of (d.log||[])) if(!state.lines.includes(line)) note(line);
+    }
+  });
+}
+let refreshTimer=null;
+function refresh(){ clearTimeout(refreshTimer);
+  refreshTimer=setTimeout(async()=>{ if(state.job){ const s=state.stage;
+    state.job = await api('/api/jobs/'+state.job.id); state.stage=s; renderJob(); loadJobs(); } },350); }
+function note(line){
+  state.lines.push(line); if(state.lines.length>400) state.lines.shift();
+  const el=$('#log'); if(el){ el.textContent = state.lines.join('\n'); el.scrollTop=el.scrollHeight; }
+}
+
+// ---------------------------------------------------------------- modals -
+async function showNew(){
+  // Render from the probe-free endpoint so the form appears immediately.
+  // Reachability is a network call to third parties -- it used to block this
+  // form for 16 seconds with one dead endpoint configured -- so it arrives
+  // afterwards and only greys options out.
+  const [templates, profiles] = await Promise.all([
+    api('/api/templates'), api('/api/config/profiles')]);
+  const SETTINGS_CAPTIONS = profiles.burn_captions !== false;
+  const SETTINGS_FACTS = profiles.fact_check || 'strict';
+  $('#main').innerHTML = `<div class="card" style="max-width:620px">
+    <h2>New reel</h2>
+    <div class="field"><label>GitHub repository or Hugging Face model URL</label>
+      <input id="nurl" placeholder="https://github.com/owner/repo" autofocus></div>
+    <div class="field"><label>Template</label><select id="ntpl">
+      ${templates.map(t=>`<option value="${t.name}">${esc(t.title)} — ${esc(t.description.slice(0,70))}</option>`).join('')}
+    </select></div>
+    <div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+      <input type="checkbox" id="ncap" ${SETTINGS_CAPTIONS?'checked':''}>
+      Burn word-synced captions into the video</label>
+      <div class="small muted" style="margin-top:4px">Instagram, YouTube and Facebook
+      auto-caption on upload, so this duplicates them &mdash; but burned-in text is
+      what carries a muted autoplay, and it always matches the script.</div></div>
+    <div class="field"><label>Fact checking</label>
+      <select id="nfacts">
+        <option value="strict" ${SETTINGS_FACTS==='strict'?'selected':''}>Strict &mdash; a number that does not trace goes back to the model</option>
+        <option value="warn" ${SETTINGS_FACTS==='warn'?'selected':''}>Warn &mdash; let the draft through, flag the numbers on the content gate</option>
+        <option value="off" ${SETTINGS_FACTS==='off'?'selected':''}>Off &mdash; do not check</option>
+      </select>
+      <div class="small muted" style="margin-top:4px">Every figure on screen and in
+      the narration must trace to the GitHub/HF API or to the project's own README.
+      Spelled-out figures are checked too, matched at two significant figures so
+      &ldquo;thirty eight thousand&rdquo; is a valid way to say 38,048.</div></div>
+    <div class="split">
+      <div class="field"><label>Model <span class="muted" id="llm-note"></span></label>
+        <select id="nllm"><option value="">use configured (${esc(profiles.llm.selected)})</option>
+        ${profiles.llm.providers.map(p=>`<option value="${p.provider}">${esc(p.provider)}${
+          p.model?' — '+esc(p.model):''}</option>`).join('')}</select></div>
+      <div class="field"><label>Voice <span class="muted" id="tts-note"></span></label>
+        <select id="ntts" onchange="onVoiceProfileChange()">
+        <option value="">use configured (${esc(profiles.tts.selected)})</option>
+        ${profiles.tts.providers.map(p=>`<option value="${p.provider}" data-adapter="${esc(p.adapter)}">${
+          esc(p.provider)}</option>`).join('')}
+        </select>
+        <div id="voicepick" style="margin-top:7px"></div></div>
+    </div>
+    <div class="field"><label>Approval</label>
+      <select id="ngates">
+        <option value="">use the saved default</option>
+        <option value="none">run straight through</option>
+        <option value="all">pause after every stage</option>
+      </select></div>
+    <div class="field"><label>Screenshots <span class="muted">&mdash; optional</span></label>
+      <div class="small muted" style="margin-bottom:8px">Each slot says what the
+      picture is of, so the reel can put the right heading over it. Wide
+      screenshots are shown whole, in a card; you can crop and switch to
+      full-bleed after uploading. With none, the reel is exactly as it would be.</div>
+      <div id="nimgslots"></div>
+    </div>
+    <button class="primary" onclick="createJob()">${ico('play')}Create and start</button>
+  </div>`;
+  renderUploadSlots();
+  $('#side').innerHTML='';
+  markReachability();
+}
+
+// Files chosen before the job exists, held until it does. The job id is only
+// minted on create, and asking someone to create first and upload second turns
+// one form into two.
+let PENDING_IMAGES = [];
+
+async function renderUploadSlots(){
+  const {roles} = await api('/api/jobs/images/roles');
+  $('#nimgslots').innerHTML = roles.map(r=>`
+    <div class="row" style="align-items:flex-start;gap:10px;margin-bottom:8px">
+      <div style="flex:0 0 190px">
+        <b class="small">${esc(r.label)}</b>
+        <div class="small muted">${esc(r.hint)}</div>
+      </div>
+      <input type="file" accept="image/png,image/jpeg,image/webp" multiple
+             data-role="${esc(r.key)}" onchange="stageImages(this)">
+      <span class="small muted" id="cnt-${esc(r.key)}"></span>
+    </div>`).join('');
+}
+
+function stageImages(input){
+  const role = input.dataset.role;
+  PENDING_IMAGES = PENDING_IMAGES.filter(p=>p.role!==role);
+  for(const file of input.files) PENDING_IMAGES.push({role, file});
+  const n = [...input.files].length;
+  $(`#cnt-${role}`).textContent = n ? `${n} file${n>1?'s':''}` : '';
+}
+
+async function uploadPending(jobId){
+  const byRole = {};
+  for(const {role, file} of PENDING_IMAGES) (byRole[role] ||= []).push(file);
+  for(const [role, files] of Object.entries(byRole)){
+    const form = new FormData();
+    for(const f of files) form.append('files', f);
+    const res = await fetch(`/api/jobs/${jobId}/images?role=${encodeURIComponent(role)}`,
+                            {method:'POST', body:form});
+    if(!res.ok) throw new Error((await res.json()).detail || 'image upload failed');
+  }
+  PENDING_IMAGES = [];
+}
+
+// A profile that speaks has a voice worth choosing per job -- the same
+// ElevenLabs account holds 22 of them, and which one narrates is a decision
+// about this reel, not a permanent setting.
+async function onVoiceProfileChange(){
+  const sel = $('#ntts');
+  const box = $('#voicepick');
+  if(!sel || !box) return;
+  const name = sel.value;
+  box.innerHTML = '';
+  if(!name) return;
+  const opt = sel.options[sel.selectedIndex];
+  if(!['elevenlabs','openai','local'].includes(opt.dataset.adapter||'')) return;
+  box.innerHTML = '<span class="small muted">loading voices…</span>';
+  try{
+    const r = await api(`/api/settings/tts/profiles/${name}/voices`);
+    if(r.voices && r.voices.length){
+      box.innerHTML = `<select id="nvoice">
+        <option value="">profile default${r.selected?' ('+esc(r.selected)+')':''}</option>
+        ${r.voices.map(v=>`<option value="${esc(v.id)}" ${
+          v.id===r.selected?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`;
+    }else{
+      box.innerHTML = `<span class="small muted">${
+        esc(r.error ? r.error.slice(0,120) : 'no voices listed; the profile default is used')}</span>`;
+    }
+  }catch(e){ box.innerHTML = '<span class="small muted">could not list voices</span>'; }
+}
+
+async function markReachability(){
+  try{
+    const p = await api('/api/config/providers');
+    for(const [kind, sel] of [['llm','#nllm'],['tts','#ntts']]){
+      const el = $(sel); if(!el) continue;
+      const bad = p[kind].providers.filter(x=>!x.reachable).map(x=>x.provider);
+      for(const opt of el.options){
+        if(opt.value && bad.includes(opt.value)){
+          opt.disabled = true; opt.textContent += ' (unreachable)';
+        }
+      }
+      const note = $('#'+kind+'-note');
+      if(note) note.textContent = bad.length ? `${bad.length} unreachable` : 'all reachable';
+    }
+  }catch(e){ /* the form still works without it */ }
+}
+
+function gatesChoice(){
+  const v = $('#ngates').value;
+  if(v==='none') return [];
+  if(v==='all') return ['ingest','content','cover','audio','align','storyboard','render','verify','package'];
+  return null;   // null means "use the saved default"
+}
+
+async function createJob(){
+  try{
+    const j = await api('/api/jobs',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({url:$('#nurl').value.trim(), template:$('#ntpl').value,
+        captions:$('#ncap').checked, fact_check:$('#nfacts').value,
+        llm_provider:$('#nllm').value||null, tts_provider:$('#ntts').value||null,
+        tts_voice:($('#nvoice')&&$('#nvoice').value)||null,
+        manual_stages:gatesChoice(),
+        autostart:PENDING_IMAGES.length===0})});
+    if(PENDING_IMAGES.length){
+      // upload before starting, so the storyboard is written knowing about them
+      await uploadPending(j.id);
+      await api(`/api/jobs/${j.id}/run`,{method:'POST',
+        headers:{'content-type':'application/json'}, body:JSON.stringify({})});
+    }
+    await loadJobs(); openJob(j.id);
+  }catch(e){ alert(e.message); }
+}
+
+async function toggleCaptions(){
+  const on = !state.job.captions;
+  if(!confirm(`Turn burned-in captions ${on?'on':'off'}? The storyboard draws them, `
+    + `so this clears the storyboard, render and verify stages.`)) return;
+  await api(`/api/jobs/${state.job.id}`,{method:'PATCH',
+    headers:{'content-type':'application/json'}, body:JSON.stringify({captions:on})});
+  await openJob(state.job.id);
+}
+
+async function cycleFactCheck(){
+  const order = ['strict','warn','off'];
+  const next = order[(order.indexOf(state.job.fact_check||'strict')+1)%order.length];
+  if(!confirm(`Set fact checking to "${next}"? The rule is applied while the script `
+    + `is written, so this clears the content stage and everything after it.`)) return;
+  await api(`/api/jobs/${state.job.id}`,{method:'PATCH',
+    headers:{'content-type':'application/json'}, body:JSON.stringify({fact_check:next})});
+  await openJob(state.job.id);
+}
+
+// ------------------------------------------------------------ screenshots --
+// A hand-written cropper: this page has no build step and no CDN, so a library
+// is not an option. The viewport is the target shape, the image is dragged and
+// zoomed behind it, and what is saved is the visible rectangle in fractions of
+// the source -- the same units the renderer applies, so the two cannot drift.
+const CROP_VIEW_W = 300;
+
+function paneImages(){
+  const imgs = state.job.images || [];
+  $('#pane').innerHTML = `
+    <div class="card">
+      <div class="row mb"><b class="grow">Screenshots &mdash; ${imgs.length}</b>
+        <label class="small" style="cursor:pointer">
+          <input type="file" accept="image/png,image/jpeg,image/webp" multiple
+                 style="display:none" onchange="addImages(this)"> + add</label></div>
+      ${imgs.length ? '' : '<div class="small muted">None. The reel renders '
+        + 'without a screenshot screen &mdash; the layout that needs one is '
+        + 'simply never chosen.</div>'}
+      <div id="imglist"></div>
+    </div>`;
+  drawImageList();
+}
+
+function drawImageList(){
+  const imgs = state.job.images || [];
+  $('#imglist').innerHTML = imgs.map(im=>`
+    <div class="card" style="margin-top:10px">
+      <div class="row mb">
+        <b class="grow small">${esc(im.filename)}</b>
+        <select onchange="saveImage('${im.id}',{role:this.value})">
+          ${['repo','app','output','other'].map(r=>
+            `<option value="${r}" ${im.role===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+        <select onchange="saveImage('${im.id}',{fit:this.value})">
+          <option value="panel" ${im.fit==='panel'?'selected':''}>panel &mdash; full width</option>
+          <option value="full" ${im.fit==='full'?'selected':''}>full-bleed 9:16</option>
+        </select>
+        <select onchange="saveImage('${im.id}',{position:this.value})"
+                ${im.fit==='full'?'disabled':''}>
+          ${['bottom','centre','top'].map(pos=>
+            `<option value="${pos}" ${(im.position||'bottom')===pos?'selected':''}>${pos}</option>`).join('')}
+        </select>
+        <button onclick="removeImage('${im.id}')">remove</button>
+      </div>
+      <div class="row" style="align-items:flex-start;gap:14px">
+        <div id="crop-${im.id}"></div>
+        <div class="grow">
+          <div class="field"><label>Caption <span class="muted">optional</span></label>
+            <input value="${esc(im.caption||'')}"
+                   onchange="saveImage('${im.id}',{caption:this.value})"></div>
+          <div class="small muted">${im.source_width}&times;${im.source_height}
+            source &middot; drawn at ${im.prepared_width}&times;${im.prepared_height}</div>
+          <div class="small muted" style="margin-top:6px">Drag to move, scroll to
+            zoom. ${im.fit==='full'
+              ? 'Full-bleed keeps a 9:16 slice and fades at the edges, where the platform UI sits.'
+              : 'A panel spans the full frame width. Crop to the band you want '
+                + 'shown &mdash; a tall screenshot cannot fit whole, so choose '
+                + 'which part matters.'}</div>
+        </div>
+      </div>
+    </div>`).join('');
+  for(const im of imgs) mountCropper(im);
+}
+
+function mountCropper(im){
+  const host = $(`#crop-${im.id}`);
+  if(!host) return;
+  // the viewport is the shape the render will use: 9:16 for full-bleed, and the
+  // image's own shape for a panel, because a panel is never letterboxed
+  // the viewport is exactly what the frame will show: 9:16 for full-bleed, and
+  // for a panel the crop's own shape, capped to the deepest band the frame can
+  // draw -- so what is dragged here is what is rendered, at the same shape
+  const panelH = Math.min(CROP_VIEW_W * (im.crop_h * im.source_height) /
+                                        (im.crop_w * im.source_width),
+                          CROP_VIEW_W * 1120 / 1080);
+  const viewH = im.fit==='full' ? Math.round(CROP_VIEW_W*1920/1080)
+                                : Math.round(Math.max(panelH, CROP_VIEW_W*280/1080));
+  host.innerHTML = `<div class="cropview" style="width:${CROP_VIEW_W}px;height:${viewH}px">
+      <img src="/api/jobs/${state.job.id}/artifacts/uploads/images/${encodeURIComponent(im.filename)}"
+           id="cropimg-${im.id}" draggable="false"></div>`;
+
+  const view = host.firstElementChild, img = view.firstElementChild;
+  const st = {x: im.crop_x, y: im.crop_y, w: im.crop_w, h: im.crop_h};
+
+  const paint = () => {
+    // the visible rect is st; scale the image so that rect fills the viewport
+    img.style.width  = (CROP_VIEW_W / st.w) + 'px';
+    img.style.left   = (-st.x * CROP_VIEW_W / st.w) + 'px';
+    img.style.top    = (-st.y * viewH / st.h) + 'px';
+    img.style.height = (viewH / st.h) + 'px';
+  };
+  img.onload = paint; paint();
+
+  let dragging = null;
+  const clamp = (v, hi) => Math.min(Math.max(v, 0), hi);
+  view.onpointerdown = e => {
+    dragging = {px:e.clientX, py:e.clientY, sx:st.x, sy:st.y};
+    view.setPointerCapture(e.pointerId);
+  };
+  view.onpointermove = e => {
+    if(!dragging) return;
+    // dragging right moves the visible window left, hence the sign
+    const dx = (e.clientX - dragging.px) / CROP_VIEW_W * st.w;
+    const dy = (e.clientY - dragging.py) / viewH * st.h;
+    st.x = clamp(dragging.sx - dx, 1 - st.w);
+    st.y = clamp(dragging.sy - dy, 1 - st.h);
+    paint();
+  };
+  view.onpointerup = () => { if(dragging){ dragging = null; commitCrop(im.id, st); } };
+  view.onwheel = e => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.06 : 0.94;
+    const nw = Math.min(Math.max(st.w * factor, 0.05), 1);
+    const nh = Math.min(Math.max(st.h * factor, 0.05), 1);
+    st.x = Math.min(Math.max(st.x + (st.w - nw)/2, 0), 1 - nw);
+    st.y = Math.min(Math.max(st.y + (st.h - nh)/2, 0), 1 - nh);
+    st.w = nw; st.h = nh; paint();
+    clearTimeout(view._t); view._t = setTimeout(()=>commitCrop(im.id, st), 350);
+  };
+}
+
+async function commitCrop(id, st){
+  await saveImage(id, {crop_x:st.x, crop_y:st.y, crop_w:st.w, crop_h:st.h}, true);
+}
+
+async function saveImage(id, patch, quiet){
+  await api(`/api/jobs/${state.job.id}/images/${id}`,{method:'PATCH',
+    headers:{'content-type':'application/json'}, body:JSON.stringify(patch)});
+  if(!quiet) await openJob(state.job.id, 'images');
+}
+
+async function addImages(input){
+  const form = new FormData();
+  for(const f of input.files) form.append('files', f);
+  const res = await fetch(`/api/jobs/${state.job.id}/images?role=other`,
+                          {method:'POST', body:form});
+  if(!res.ok){ alert((await res.json()).detail || 'upload failed'); return; }
+  await openJob(state.job.id, 'images');
+}
+
+async function removeImage(id){
+  if(!confirm('Remove this screenshot? The storyboard is rebuilt without it.')) return;
+  await api(`/api/jobs/${state.job.id}/images/${id}`,{method:'DELETE'});
+  await openJob(state.job.id, 'images');
+}
+
+let SETTINGS = null;
+
+async function showSettings(){
+  SETTINGS = await api('/api/settings');
+  renderSettings();
+  $('#side').innerHTML = `<h2>About settings</h2>
+    <div class="card small muted">
+      Written to <code>${esc(SETTINGS.overlay_path)}</code>, merged over the
+      committed <code>config.yaml</code>. API keys are stored separately with
+      owner-only permissions and are never sent back here.
+      <div class="hp" style="margin-top:9px"><span class="d ${SETTINGS.access.mode==='token'?'up':''}"></span>
+        ${esc(SETTINGS.access.description)}</div>
+    </div>`;
+}
+
+function renderSettings(){
+  const s = SETTINGS;
+  $('#main').innerHTML = `
+    <div class="row mb"><h2 style="margin:0" class="grow">Settings</h2>
+      <button class="ghost" onclick="loadJobs().then(()=>state.job&&openJob(state.job.id))">Back to jobs</button></div>
+
+    <div class="sec">
+      <h3>Model routing</h3>
+      <p>The pipeline stages are not the same kind of work. Writing the script and
+      writing a storyboard reward a strong model; extracting a fact sheet or picking
+      a palette are structured tasks with validators behind them.</p>
+      ${Object.entries(s.llm.presets).map(([key,p])=>{
+        const on = presetMatches(key);
+        return `<button class="preset ${on?'on':''}" onclick="applyPreset('${key}')">
+          <b>${esc(p.label)}${on?' &middot; active':''}</b><span>${esc(p.description)}</span></button>`;
+      }).join('')}
+      <table style="margin-top:10px">
+        <tr><th>stage</th><th>profile</th></tr>
+        ${s.llm.role_names.map(r=>`<tr><td>${r}</td><td>
+          <select onchange="setRole('${r}', this.value)">
+            <option value="">use active (${esc(s.llm.active)})</option>
+            ${s.llm.profiles.map(p=>`<option value="${p.name}" ${
+              (s.llm.roles[r]||{}).profile===p.name?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select></td></tr>`).join('')}
+      </table>
+    </div>
+
+    ${profileSection('llm','Language models','Several profiles may share an adapter — an OpenAI-compatible endpoint reaches OpenAI, vLLM, LM Studio, Groq and OpenRouter alike.')}
+    ${profileSection('tts','Voices','Upload is always available so a job can fall back to narration you supply yourself.')}
+
+    <div class="sec">
+      <h3>Approval gates</h3>
+      <p>Which stages stop and wait for you. Pausing at the script and the
+      storyboard is usually right: the first is what the video says, the second is
+      generated code, and both are cheaper to read than to re-render.</p>
+      <div class="row mb">
+        <button onclick="setGates([])">All automatic</button>
+        <button onclick="setGates(${JSON.stringify(s.approval.stages).replace(/"/g,'&quot;')})">All manual</button>
+        <span class="muted small">currently: ${esc(s.approval.preset)}</span>
+      </div>
+      <div class="gates">
+        ${s.approval.stages.map(st=>{
+          const on = s.approval.manual_stages.includes(st);
+          return `<label class="gate ${on?'on':''}">
+            <input type="checkbox" ${on?'checked':''} onchange="toggleGate('${st}')">
+            ${st}${on?' — pause':''}</label>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>API keys</h3>
+      <p>Stored outside this file with owner-only permissions and never shown again.
+      An environment variable of the same name always wins, and is flagged below
+      when it does.</p>
+      <div id="secrets">loading…</div>
+    </div>`;
+  loadSecrets();
+}
+
+function presetMatches(key){
+  const want = SETTINGS.llm.presets[key].roles;
+  const have = SETTINGS.llm.roles;
+  const roles = SETTINGS.llm.role_names;
+  if(!Object.keys(want).length) return roles.every(r=>!(have[r]||{}).profile);
+  return roles.every(r=>{
+    const target = want[r];
+    const chosen = (have[r]||{}).profile;
+    if(!target) return !chosen;
+    if(!chosen) return false;
+    const p = SETTINGS.llm.profiles.find(x=>x.name===chosen);
+    const hosted = p && p.adapter!=='ollama';
+    return target==='__hosted__' ? hosted : !hosted;
+  });
+}
+
+function profileSection(kind,title,blurb){
+  const s = SETTINGS[kind];
+  return `<div class="sec">
+    <h3>${title}</h3><p>${blurb}</p>
+    ${s.profiles.map(p=>`
+      <div class="prof ${p.active?'on':''}">
+        <span class="nm">${esc(p.name)}</span>
+        <span class="ad">${esc(p.adapter)}</span>
+        <span class="md">${esc(p.model||p.base_url||'')}</span>
+        ${p.key?`<span class="badge ${p.key.state==='set'?'ok':''}" title="${esc(p.api_key_env)}">${
+          p.key.state==='set'?('key '+esc(p.key.masked)):'no key'}</span>`:''}
+        <span class="badge" id="b-${kind}-${p.name}" style="display:none"></span>
+        <span class="badge" id="t-${kind}-${p.name}">?</span>
+        <button onclick="testProfile('${kind}','${p.name}')">Test</button>
+        <button onclick="editProfile('${kind}','${esc(p.name)}')">Edit</button>
+        ${p.active?'<span class="badge ok">in use</span>'
+                  :`<button onclick="activate('${kind}','${p.name}')">Use</button>
+                    <button onclick="removeProfile('${kind}','${p.name}')">Remove</button>`}
+      </div>`).join('')}
+    <button onclick="addProfile('${kind}')">Add a ${kind==='llm'?'model':'voice'} profile</button>
+  </div>`;
+}
+
+async function loadSecrets(){
+  const {secrets} = await api('/api/settings/secrets');
+  $('#secrets').innerHTML = secrets.map(k=>`
+    <div class="prof">
+      <span class="nm" style="font-family:var(--mono);font-size:12px">${esc(k.name)}</span>
+      <span class="md">${k.state==='set'?esc(k.masked)+' &middot; from '+esc(k.source):'not set'}</span>
+      ${k.shadowed?'<span class="badge warn" title="the environment variable wins">shadowed by env</span>':''}
+      <button onclick="editSecret('${k.name}')">${k.state==='set'?'Replace':'Set'}</button>
+      ${k.state==='set'&&k.source==='settings'?`<button onclick="clearSecret('${k.name}')">Clear</button>`:''}
+    </div>`).join('') + `<button style="margin-top:6px" onclick="editSecret('')">Add another key</button>`;
+}
+
+// --------------------------------------------------------------- actions -
+async function settingsCall(path, opts){
+  try{
+    const body = await api('/api/settings'+path, opts);
+    if(body && body.llm) SETTINGS = body;
+    renderSettings();
+    return body;
+  }catch(e){ alert(e.message); }
+}
+const applyPreset = key => settingsCall(`/llm/roles/preset/${key}`,
+  {method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+const activate = (kind,name) => settingsCall(`/${kind}/active`,
+  {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name})});
+const removeProfile = (kind,name) => settingsCall(`/${kind}/profiles/${name}`,{method:'DELETE'});
+const setGates = stages => settingsCall('/approval',
+  {method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({manual_stages:stages})});
+
+function toggleGate(stage){
+  const now = new Set(SETTINGS.approval.manual_stages);
+  now.has(stage) ? now.delete(stage) : now.add(stage);
+  setGates([...now]);
+}
+
+function setRole(role, profile){
+  const roles = {};
+  for(const r of SETTINGS.llm.role_names){
+    const chosen = r===role ? profile : (SETTINGS.llm.roles[r]||{}).profile;
+    if(chosen) roles[r] = {profile: chosen};
+  }
+  settingsCall('/llm/roles',{method:'PUT',headers:{'content-type':'application/json'},
+    body:JSON.stringify(roles)});
+}
+
+async function testProfile(kind,name){
+  const el = $('#t-'+kind+'-'+name); if(el){ el.textContent='…'; el.className='badge'; }
+  try{
+    const r = await api(`/api/settings/${kind}/profiles/${name}/test`,{method:'POST'});
+    if(el){ el.textContent = r.reachable?'reachable':'unreachable';
+            el.className = 'badge '+(r.reachable?'ok':'bad');
+            if(r.error) el.title = r.error; }
+    if(r.warning){
+      const row = el && el.closest('.prof');
+      if(row && !row.querySelector('.warnrow'))
+        row.insertAdjacentHTML('afterend',
+          `<div class="card small warn warnrow" style="margin:-4px 0 7px">${esc(r.warning)}</div>`);
+    }
+    // show what a metered provider has left, if it will tell us
+    const bal = $('#b-'+kind+'-'+name);
+    const rows = (r.key_balances||[]).filter(b=>typeof b.remaining==='number');
+    if(bal && rows.length){
+      const left = rows.reduce((a,b)=>a+b.remaining,0);
+      bal.style.display=''; bal.className='badge '+(left>0?'ok':'warn');
+      bal.textContent = left.toLocaleString()+' chars left';
+      bal.title = rows.map(b=>`${b.label}: ${b.used}/${b.limit} used (${b.tier||'?'})`).join('\n');
+    } else if(bal && r.reachable && (r.voice_name)){
+      bal.style.display=''; bal.className='badge'; bal.textContent = r.voice_name.split(' - ')[0];
+    }
+  }catch(e){ if(el){ el.textContent='error'; el.className='badge bad'; el.title=e.message; } }
+}
+
+function modal(html){
+  const d = document.createElement('div');
+  d.className='modal'; d.innerHTML = `<div class="card">${html}</div>`;
+  d.onclick = e => { if(e.target===d) d.remove(); };
+  document.body.appendChild(d); return d;
+}
+
+function addProfile(kind){
+  const adapters = SETTINGS[kind].adapters;
+  const endpoints = (SETTINGS.llm.endpoints)||{};
+  const known = kind==='llm' ? Object.entries(endpoints) : [];
+  const d = modal(`<h2>New ${kind==='llm'?'model':'voice'} profile</h2>
+    ${known.length?`<div class="field"><label>Start from a known service</label>
+      <select id="p-known"><option value="">custom…</option>
+        ${known.map(([k,v])=>`<option value="${k}">${esc(v.label)}${
+          v.hosted?'':' — self-hosted'}</option>`).join('')}</select>
+      <div class="small muted" style="margin-top:4px">These all speak the same
+        OpenAI-compatible protocol; they differ only in an address and a key.</div>
+      </div>`:''}
+    <div class="field"><label>Name</label><input id="p-name" placeholder="openrouter"></div>
+    <div class="field"><label>Adapter</label><select id="p-adapter">
+      ${adapters.map(a=>`<option value="${a}">${a}</option>`).join('')}</select>
+      <div class="small muted" style="margin-top:4px">Cannot be changed later — the
+      settings mean different things to each adapter.</div></div>
+    <div class="field"><label>Model</label><input id="p-model" placeholder="anthropic/claude-sonnet-4.5"></div>
+    <div class="field"><label>Base URL <span class="muted">(blank for the adapter default)</span></label>
+      <input id="p-url" placeholder="https://openrouter.ai/api/v1"></div>
+    <div class="field"><label>API key variable</label>
+      <input id="p-key" placeholder="OPENROUTER_API_KEY"></div>
+    <div class="field"><label>Structured output <span class="muted">(OpenAI-compatible only)</span></label>
+      <select id="p-json">
+        <option value="json_schema">json_schema — exact, for an instruct model</option>
+        <option value="json_object">json_object — valid JSON, shape unenforced</option>
+        <option value="text">text — for a reasoning model that must think first</option>
+      </select></div>
+    <div class="row"><button class="primary" id="p-save">Create</button>
+      <button onclick="this.closest('.modal').remove()">Cancel</button></div>`);
+
+  const pick = d.querySelector('#p-known');
+  if(pick) pick.onchange = () => {
+    const e = endpoints[pick.value]; if(!e) return;
+    d.querySelector('#p-name').value    = pick.value;
+    d.querySelector('#p-adapter').value = 'openai';
+    d.querySelector('#p-model').value   = e.model || '';
+    d.querySelector('#p-url').value     = e.base_url || '';
+    d.querySelector('#p-key').value     = e.api_key_env || '';
+    d.querySelector('#p-json').value    = e.json_mode || 'json_schema';
+  };
+
+  d.querySelector('#p-save').onclick = async () => {
+    const name = d.querySelector('#p-name').value.trim();
+    if(!name) return alert('a profile needs a name');
+    const adapter = d.querySelector('#p-adapter').value;
+    const extra = adapter==='openai' ? {json_mode: d.querySelector('#p-json').value} : {};
+    await settingsCall(`/${kind}/profiles/${name}`,{method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({adapter,
+        model:d.querySelector('#p-model').value.trim(),
+        base_url:d.querySelector('#p-url').value.trim()||null,
+        api_key_env:d.querySelector('#p-key').value.trim()||null, settings:extra})});
+    d.remove();
+  };
+}
+
+// Forms are built from the field list the backend supplies per adapter, so
+// each provider shows its own settings and nothing is hardcoded here.
+function fieldControl(f, value){
+  const id = 'f-'+f.key;
+  const help = f.help?`<div class="small muted" style="margin-top:4px">${esc(f.help)}</div>`:'';
+  if(f.type==='select')
+    return `<div class="field"><label>${esc(f.label)}</label>
+      <select id="${id}">${f.options.map(o=>`<option value="${esc(o)}" ${
+        String(value)===o?'selected':''}>${esc(o)}</option>`).join('')}</select>${help}</div>`;
+  if(f.type==='bool')
+    return `<div class="field"><label><input type="checkbox" id="${id}" ${
+      value?'checked':''} style="width:auto"> ${esc(f.label)}</label>${help}</div>`;
+  if(f.type==='voice')
+    return `<div class="field"><label>${esc(f.label)}</label>
+      <select id="${id}"><option value="${esc(value??'')}">${esc(value??'(none)')}</option></select>
+      <div class="small muted" id="${id}-note" style="margin-top:4px">loading voices…</div>${help}</div>`;
+  const type = f.type==='number' ? 'number' : 'text';
+  const step = f.step?` step="${f.step}"`:'';
+  return `<div class="field"><label>${esc(f.label)}</label>
+    <input id="${id}" type="${type}"${step} value="${esc(value??'')}">${help}</div>`;
+}
+
+async function editProfile(kind, name){
+  const p = SETTINGS[kind].profiles.find(x=>x.name===name);
+  if(!p) return;
+  const vals = Object.assign({}, p.settings||{}, {model:p.model, base_url:p.base_url,
+                                                 api_key_env:p.api_key_env});
+  const d = modal(`<h2>Edit ${esc(name)}</h2>
+    <div class="small muted" style="margin-bottom:11px">
+      Adapter <b>${esc(p.adapter)}</b> — fixed once created, because the settings
+      below mean different things to each adapter.</div>
+    <div class="field"><label>Display label</label>
+      <input id="f-label" value="${esc(p.label===p.name?'':p.label||'')}" placeholder="${esc(name)}"></div>
+    ${(p.fields||[]).map(f=>fieldControl(f, vals[f.key])).join('')}
+    <div class="row"><button class="primary" id="e-save">Save changes</button>
+      <button onclick="this.closest('.modal').remove()">Cancel</button></div>`);
+
+  // a voice field is populated from the provider's own list
+  const voiceField = (p.fields||[]).find(f=>f.type==='voice');
+  if(voiceField){
+    const sel = d.querySelector('#f-'+voiceField.key);
+    const note = d.querySelector('#f-'+voiceField.key+'-note');
+    try{
+      const r = await api(`/api/settings/${kind}/profiles/${name}/voices`);
+      if(r.voices && r.voices.length){
+        const current = vals[voiceField.key];
+        sel.innerHTML = r.voices.map(v=>`<option value="${esc(v.id)}" ${
+          v.id===current?'selected':''}>${esc(v.name)}</option>`).join('');
+        if(current && !r.voices.some(v=>v.id===current))
+          sel.insertAdjacentHTML('afterbegin',
+            `<option value="${esc(current)}" selected>${esc(current)} (not on this account)</option>`);
+        note.textContent = `${r.voices.length} voices on this account`;
+      }else{
+        // keep it editable rather than trapping the user behind an empty list
+        sel.outerHTML = `<input id="f-${voiceField.key}" value="${esc(vals[voiceField.key]??'')}">`;
+        note.textContent = r.error ? r.error.slice(0,120)
+                                   : 'could not list voices — enter an id by hand';
+      }
+    }catch(e){
+      sel.outerHTML = `<input id="f-${voiceField.key}" value="${esc(vals[voiceField.key]??'')}">`;
+      note.textContent = 'could not list voices — enter an id by hand';
+    }
+  }
+
+  d.querySelector('#e-save').onclick = async () => {
+    const extra = {};
+    let model = p.model, base_url = p.base_url, api_key_env = p.api_key_env;
+    for(const f of (p.fields||[])){
+      const el = d.querySelector('#f-'+f.key);
+      if(!el) continue;
+      let v = f.type==='bool' ? el.checked : el.value.trim();
+      if(f.type==='number') v = v==='' ? null : Number(v);
+      if(v===null || v==='') continue;
+      if(f.key==='model') model = v;
+      else if(f.key==='base_url') base_url = v;
+      else if(f.key==='api_key_env') api_key_env = v;
+      else extra[f.key] = v;
+    }
+    const label = d.querySelector('#f-label').value.trim();
+    const body = await settingsCall(`/${kind}/profiles/${name}`,{method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({adapter:p.adapter, label, model, base_url,
+                           api_key_env, settings:extra})});
+    if(body && body.notice) alert(body.notice);
+    d.remove();
+  };
+}
+
+function editSecret(name){
+  const d = modal(`<h2>${name?'Replace':'Set'} an API key</h2>
+    <div class="field"><label>Variable name</label>
+      <input id="s-name" value="${esc(name)}" ${name?'readonly':''} placeholder="GROQ_API_KEY"></div>
+    <div class="field"><label>Value</label>
+      <input id="s-val" type="password" placeholder="paste the key"></div>
+    <div class="small muted" style="margin-bottom:11px">Stored with owner-only
+      permissions and never shown again — only a masked form.</div>
+    <div class="row"><button class="primary" id="s-save">Save</button>
+      <button onclick="this.closest('.modal').remove()">Cancel</button></div>`);
+  d.querySelector('#s-save').onclick = async () => {
+    const n = d.querySelector('#s-name').value.trim();
+    const v = d.querySelector('#s-val').value;
+    if(!n || !v) return alert('both a name and a value are needed');
+    try{
+      await api('/api/settings/secrets',{method:'PUT',
+        headers:{'content-type':'application/json'},body:JSON.stringify({name:n,value:v})});
+      d.remove(); SETTINGS = await api('/api/settings'); renderSettings();
+    }catch(e){ alert(e.message); }
+  };
+}
+
+async function clearSecret(name){
+  await api('/api/settings/secrets/'+encodeURIComponent(name),{method:'DELETE'});
+  loadSecrets();
+}
+
+// ----------------------------------------------------------------- boot --
+(async()=>{
+  try{
+    const h = await api('/api/health'); $('#executor').textContent = 'executor: '+h.executor;
+    setInterval(async()=>{ try{ const q=await api('/api/queue');
+      $('#queuecount').textContent = `${q.counts.running} running · ${q.counts.waiting} waiting`;
+    }catch(e){} }, 4000);
+    await loadJobs();
+    if(state.jobs.length) openJob(state.jobs[0].id);
+    else showNew();
+  }catch(e){ $('#main').innerHTML=`<div class="err">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

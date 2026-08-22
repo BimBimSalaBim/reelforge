@@ -1,0 +1,88 @@
+{
+  "slug": "harness",
+  "display_name": "harness",
+  "primary_url": "https://github.com/harness/harness",
+  "fetched_at": "2026-08-20T14:31:10.586258Z",
+  "github": {
+    "kind": "github",
+    "owner": "harness",
+    "repo": "harness",
+    "full_name": "harness/harness",
+    "url": "https://github.com/harness/harness",
+    "homepage": "https://www.harness.io/open-source",
+    "description": "Harness Open Source is an end-to-end developer platform with Source Control Management, CI/CD Pipelines, Hosted Developer Environments, and Artifact Registries.",
+    "stars": 38048,
+    "forks": 3352,
+    "open_issues": 105,
+    "watchers": 540,
+    "licence": "Apache-2.0",
+    "language": "Go",
+    "languages": {
+      "Go": 11378889,
+      "TypeScript": 6273957,
+      "SCSS": 593443,
+      "Shell": 122163,
+      "JavaScript": 111824,
+      "PLpgSQL": 24533,
+      "Dockerfile": 7506,
+      "Makefile": 6388,
+      "HTML": 5490,
+      "Go Template": 1781
+    },
+    "topics": [
+      "build-automation",
+      "build-pipelines",
+      "ci",
+      "ci-cd",
+      "code-repository",
+      "continuous-delivery",
+      "continuous-integration",
+      "docker",
+      "git",
+      "go",
+      "hacktoberfest",
+      "scm"
+    ],
+    "created_at": "2014-02-07T07:54:44Z",
+    "pushed_at": "2026-08-20T13:39:18Z",
+    "latest_release": "v2.28.2",
+    "latest_release_at": "2026-04-20T11:19:42Z",
+    "default_branch": "main",
+    "archived": false,
+    "age_days": 4577,
+    "days_since_push": 0,
+    "days_since_release": 122
+  },
+  "huggingface": null,
+  "readme_markdown": "# Harness\nHarness Open Source is an open source development platform packed with the power of code hosting, automated DevOps pipelines, hosted development environments (Gitspaces), and artifact registries.\n\n## Overview\nHarness Open source is an open source development platform packed with the power of code hosting, automated DevOps pipelines, Gitspaces, and artifact registries.\n\n\n## Running Harnes",
+  "readme_source": "github.readme",
+  "supplied_markdown": null,
+  "supplied_markdown_name": null,
+  "install_commands": [
+    "docker run -d \\",
+    "yarn install",
+    "yarn build"
+  ],
+  "sources": [
+    {
+      "api": "github.repos",
+      "url": "https://api.github.com/repos/harness/harness",
+      "fetched_at": "2026-08-20T14:31:09.316591Z"
+    },
+    {
+      "api": "github.languages",
+      "url": "https://api.github.com/repos/harness/harness/languages",
+      "fetched_at": "2026-08-20T14:31:09.316591Z"
+    },
+    {
+      "api": "github.releases",
+      "url": "https://api.github.com/repos/harness/harness/releases/latest",
+      "fetched_at": "2026-08-20T14:31:09.316591Z"
+    },
+    {
+      "api": "github.readme",
+      "url": "https://api.github.com/repos/harness/harness/readme",
+      "fetched_at": "2026-08-20T14:31:09.316591Z"
+    }
+  ]
+}

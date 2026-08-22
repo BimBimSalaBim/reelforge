@@ -1,0 +1,443 @@
+{
+ "id": "20260822-150329-awesome-llm-apps-4b44ef",
+ "slug": "awesome-llm-apps",
+ "template": "research",
+ "captions": false,
+ "fact_check": "off",
+ "images": [
+  {
+   "id": "5a87b638",
+   "filename": "6f897274-Screen Shot 2026-08-22 at 3.01.07 PM.png",
+   "role": "repo",
+   "fit": "panel",
+   "position": "centre",
+   "crop_x": 0.0,
+   "crop_y": 0.07544790135807929,
+   "crop_w": 1.0,
+   "crop_h": 0.9174740542002485,
+   "source_width": 1294,
+   "source_height": 1484,
+   "prepared": "images/5a87b638.png",
+   "prepared_width": 1080,
+   "prepared_height": 1060,
+   "caption": ""
+  },
+  {
+   "id": "615b9462",
+   "filename": "726df9e2-Screen Shot 2026-08-22 at 3.01.27 PM.png",
+   "role": "app",
+   "fit": "panel",
+   "position": "bottom",
+   "crop_x": 0.0,
+   "crop_y": 0.128431122990115,
+   "crop_w": 1.0,
+   "crop_h": 0.74313775401977,
+   "source_width": 1322,
+   "source_height": 1746,
+   "prepared": "images/615b9462.png",
+   "prepared_width": 1080,
+   "prepared_height": 1060,
+   "caption": ""
+  },
+  {
+   "id": "cf093f4f",
+   "filename": "9d9ca914-Screen Shot 2026-08-22 at 3.01.40 PM.png",
+   "role": "output",
+   "fit": "panel",
+   "position": "bottom",
+   "crop_x": 0.0,
+   "crop_y": 0.005697306907292436,
+   "crop_w": 1.0,
+   "crop_h": 0.8785923292911352,
+   "source_width": 1320,
+   "source_height": 1822,
+   "prepared": "images/cf093f4f.png",
+   "prepared_width": 1080,
+   "prepared_height": 1060,
+   "caption": ""
+  },
+  {
+   "id": "d527a5ee",
+   "filename": "af620b23-Screen Shot 2026-08-22 at 3.02.00 PM.png",
+   "role": "other",
+   "fit": "panel",
+   "position": "bottom",
+   "crop_x": 0.0,
+   "crop_y": 0.0,
+   "crop_w": 1.0,
+   "crop_h": 0.8403449623766247,
+   "source_width": 1298,
+   "source_height": 1516,
+   "prepared": "images/d527a5ee.png",
+   "prepared_width": 1080,
+   "prepared_height": 1060,
+   "caption": ""
+  }
+ ],
+ "source": {
+  "kind": "github",
+  "url": "https://github.com/Shubhamsaboo/awesome-llm-apps",
+  "uploaded_markdown_name": null
+ },
+ "providers": {
+  "llm_provider": null,
+  "llm_model": null,
+  "tts_provider": null,
+  "tts_voice": null
+ },
+ "manual_stages": [],
+ "created_at": "2026-08-22T11:03:29.283347+00:00",
+ "updated_at": "2026-08-22T11:09:19.113908+00:00",
+ "archived": false,
+ "resolved": {
+  "content": {
+   "profile": "nemotron-openrouter",
+   "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+   "source": "role routing"
+  },
+  "storyboard": {
+   "profile": "nemotron-openrouter",
+   "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+   "source": "active profile"
+  },
+  "voice": {
+   "profile": "elevenlabs",
+   "adapter": "elevenlabs",
+   "voice": "nPczCjzI2devNBz1zQrb",
+   "source": "active profile"
+  }
+ },
+ "progress": 0.556,
+ "next_stage": "storyboard",
+ "failed_stage": null,
+ "stages": [
+  {
+   "stage": "ingest",
+   "status": "done",
+   "attempts": 1,
+   "error": null,
+   "artifacts": {
+    "facts": "facts.json"
+   },
+   "meta": {
+    "slug": "awesome-llm-apps",
+    "fetched_at": "2026-08-22T11:03:36.571816+00:00",
+    "sources": [
+     "github.repos",
+     "github.languages",
+     "github.readme"
+    ],
+    "readme_chars": 24111,
+    "install_commands": [
+     "npx skills add https://github.com/Shubhamsaboo/awesome-llm-apps/tree/main/ag",
+     "pip install -r requirements.txt"
+    ],
+    "stars": 133543,
+    "forks": 19644,
+    "licence": "Apache-2.0",
+    "age_days": 845
+   },
+   "duration_seconds": 1.18,
+   "blocked_by": []
+  },
+  {
+   "stage": "content",
+   "status": "done",
+   "attempts": 1,
+   "error": null,
+   "artifacts": {
+    "content": "content.json",
+    "platforms": "platforms.json",
+    "script": "out/awesome-llm-apps.txt",
+    "phrases": "video/phrases/awesome-llm-apps.txt"
+   },
+   "meta": {
+    "words": 84,
+    "phrases": 8,
+    "estimated_seconds": 34.97,
+    "hashtags": [
+     "#opensource",
+     "#devtools",
+     "#llm",
+     "#agents",
+     "#python"
+    ],
+    "content_generation": {
+     "attempts": [
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 3516,
+       "tokens_out": 1572,
+       "latency_ms": 35054
+      },
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 789,
+       "tokens_out": 602,
+       "latency_ms": 13584
+      },
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 806,
+       "tokens_out": 2933,
+       "latency_ms": 35630
+      },
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 848,
+       "tokens_out": 1382,
+       "latency_ms": 22167
+      },
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 845,
+       "tokens_out": 1949,
+       "latency_ms": 46410
+      },
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 3117,
+       "tokens_out": 1224,
+       "latency_ms": 15023
+      },
+      {
+       "attempt": 1,
+       "ok": false,
+       "problems": [
+        "These cover strings are too wide for their space and would be clipped. Shorten them:\n  stat value 'APACHE-2': 'APACHE-2' is 9px too wide. Keep it to about 7 characters."
+       ],
+       "tokens_in": 733,
+       "tokens_out": 742,
+       "latency_ms": 28893
+      },
+      {
+       "attempt": 2,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 812,
+       "tokens_out": 776,
+       "latency_ms": 28201
+      }
+     ],
+     "repairs": 7,
+     "total_tokens": 22646
+    },
+    "platform_generation": {
+     "attempts": [
+      {
+       "attempt": 1,
+       "ok": true,
+       "problems": [],
+       "tokens_in": 1843,
+       "tokens_out": 1634,
+       "latency_ms": 25776
+      }
+     ],
+     "repairs": 0,
+     "total_tokens": 3477
+    },
+    "youtube_title": "One repo, 100+ production LLM agents, Apache-2.0 license #shorts",
+    "facts": {
+     "total": 10,
+     "api": 7,
+     "readme": 3,
+     "unsourced": [],
+     "ok": true,
+     "spoken_checked": 1
+    },
+    "fact_check": "off"
+   },
+   "duration_seconds": 326.64,
+   "blocked_by": []
+  },
+  {
+   "stage": "cover",
+   "status": "done",
+   "attempts": 1,
+   "error": null,
+   "artifacts": {
+    "cover": "awesome-llm-apps-reel.png"
+   },
+   "meta": {
+    "motif": "flow",
+    "bytes": 2758701,
+    "fit_problems": []
+   },
+   "duration_seconds": 3.29,
+   "blocked_by": []
+  },
+  {
+   "stage": "audio",
+   "status": "done",
+   "attempts": 1,
+   "error": null,
+   "artifacts": {
+    "audio": "awesome-llm-apps.mp3"
+   },
+   "meta": {
+    "mp3": "/Users/kamran/Programming/ClaudeProjects/githubrepos/data/jobs/20260822-150329-awesome-llm-apps-4b44ef/awesome-llm-apps.mp3",
+    "duration_seconds": 37.992,
+    "phrase_count": 8,
+    "gaps_ms": [
+     520,
+     1000,
+     520,
+     1000,
+     520,
+     1000,
+     520
+    ],
+    "segments": [
+     [
+      0.06,
+      2.77
+     ],
+     [
+      3.29,
+      4.94
+     ],
+     [
+      5.94,
+      12.76
+     ],
+     [
+      13.28,
+      16.69
+     ],
+     [
+      17.69,
+      24.75
+     ],
+     [
+      25.27,
+      30.15
+     ],
+     [
+      31.15,
+      32.55
+     ],
+     [
+      33.07,
+      37.25
+     ]
+    ],
+    "scene_gap_ms": 1000,
+    "min_gap_ms": 520,
+    "suggested_min_sil_ms": 420,
+    "provider": "elevenlabs",
+    "voice": "nPczCjzI2devNBz1zQrb",
+    "reel_seconds": 39.392
+   },
+   "duration_seconds": 12.29,
+   "blocked_by": []
+  },
+  {
+   "stage": "align",
+   "status": "done",
+   "attempts": 1,
+   "error": null,
+   "artifacts": {
+    "timing": "video/build/awesome-llm-apps.timing.json"
+   },
+   "meta": {
+    "duration": 37.95,
+    "segments": 8,
+    "words": 84,
+    "source": "recorded at synthesis",
+    "synthesized": true,
+    "pronunciations_applied": [
+     "CI",
+     "LLM",
+     "RAG",
+     "UI"
+    ],
+    "fast_phrases": []
+   },
+   "duration_seconds": 0.27,
+   "blocked_by": []
+  },
+  {
+   "stage": "storyboard",
+   "status": "running",
+   "attempts": 1,
+   "error": null,
+   "artifacts": {},
+   "meta": {},
+   "duration_seconds": null,
+   "blocked_by": [],
+   "started_at": "2026-08-22T15:10:00.000000Z"
+  },
+  {
+   "stage": "render",
+   "status": "pending",
+   "attempts": 0,
+   "error": null,
+   "artifacts": {},
+   "meta": {},
+   "duration_seconds": null,
+   "blocked_by": [
+    "storyboard"
+   ]
+  },
+  {
+   "stage": "verify",
+   "status": "pending",
+   "attempts": 0,
+   "error": null,
+   "artifacts": {},
+   "meta": {},
+   "duration_seconds": null,
+   "blocked_by": [
+    "storyboard",
+    "render"
+   ]
+  },
+  {
+   "stage": "package",
+   "status": "pending",
+   "attempts": 0,
+   "error": null,
+   "artifacts": {},
+   "meta": {},
+   "duration_seconds": null,
+   "blocked_by": [
+    "storyboard",
+    "render",
+    "verify"
+   ]
+  }
+ ],
+ "log": [
+  "11:03:29  job created for https://github.com/Shubhamsaboo/awesome-llm-apps",
+  "11:03:30  1 image(s) uploaded as repo",
+  "11:03:31  image 5a87b638 updated: caption, crop_h, crop_w, crop_x, crop_y, fit, position",
+  "11:03:32  1 image(s) uploaded as app",
+  "11:03:32  image 615b9462 updated: caption, crop_h, crop_w, crop_x, crop_y, fit, position",
+  "11:03:33  1 image(s) uploaded as output",
+  "11:03:33  image cf093f4f updated: caption, crop_h, crop_w, crop_x, crop_y, fit, position",
+  "11:03:34  1 image(s) uploaded as other",
+  "11:03:35  image d527a5ee updated: caption, crop_h, crop_w, crop_x, crop_y, fit, position",
+  "11:03:35  queued",
+  "11:03:35  started from the queue",
+  "11:03:35  fetching facts for https://github.com/Shubhamsaboo/awesome-llm-apps",
+  "11:03:36  facts fetched from github.repos, github.languages, github.readme",
+  "11:03:36  writing the script with openai/nvidia/nemotron-3-ultra-550b-a55b:free",
+  "11:08:37  writing the per-platform copy",
+  "11:09:03  script: 84 words, 8 phrases, ~35s",
+  "11:09:03  rendering the cover",
+  "11:09:06  synthesizing 8 phrases with elevenlabs (528 characters)",
+  "11:09:18  narration is 37.99s"
+ ]
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-page="jobs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jobs · ReelForge</title>
+<script src="/v2/static/theme.js"></script>
+<link rel="stylesheet" href="/v2/static/fonts.css">
+<link rel="stylesheet" href="/v2/static/app.css">
+<script defer src="/v2/static/dom.js"></script>
+<script defer src="/v2/static/icons.js"></script>
+<script defer src="/v2/static/api.js"></script>
+<script defer src="/v2/static/stages.js"></script>
+<script defer src="/v2/static/queue.js"></script>
+<script defer src="/v2/static/shell.js"></script>
+<script defer src="/v2/static/jobs.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="shell" data-shell></header>
+
+<main id="main" class="page">
+  <div class="page__body stack" data-gap="6">
+
+    <section class="stack" data-gap="4" data-queue-section hidden>
+      <div class="cluster" data-align="baseline">
+        <h2 class="section__title grow">Queue</h2>
+        <span class="badge" data-queue-summary></span>
+        <button class="btn btn--quiet btn--sm" data-queue-pause hidden>Pause</button>
+      </div>
+      <div data-queue-body></div>
+    </section>
+
+    <section class="stack" data-gap="4">
+      <div class="cluster" data-align="baseline">
+        <h2 class="section__title grow">Reels</h2>
+        <div class="tabs" role="tablist" data-tabs>
+          <button class="tab" role="tab" aria-selected="true"  data-tab="current">Active</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="archived">Archived</button>
+        </div>
+        <input class="input input--sm" type="search" placeholder="Filter by name or URL"
+               aria-label="Filter reels" data-filter>
+      </div>
+      <div data-jobs-body></div>
+    </section>
+
+  </div>
+</main>
+
+<div class="toaster" data-toaster aria-live="polite"></div>
+</body>
+</html>

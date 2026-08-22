@@ -1,0 +1,879 @@
+{
+ "access": {
+  "mode": "loopback",
+  "token_env": "REELFORGE_ADMIN_TOKEN",
+  "description": "Settings can be changed from this machine only. Set REELFORGE_ADMIN_TOKEN to allow remote administration."
+ },
+ "llm": {
+  "active": "nemotron-openrouter",
+  "profiles": [
+   {
+    "name": "anthropic",
+    "adapter": "anthropic",
+    "label": "claude-opus-5",
+    "model": "claude-opus-5",
+    "base_url": null,
+    "active": false,
+    "kind": "llm",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "key": {
+     "name": "ANTHROPIC_API_KEY",
+     "state": "unset",
+     "source": null,
+     "masked": "",
+     "shadowed": false
+    },
+    "settings": {
+     "model": "claude-opus-5",
+     "max_tokens": 16384,
+     "temperature": 0.7,
+     "api_key_env": "ANTHROPIC_API_KEY",
+     "request_timeout": 180.0
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number"
+     }
+    ]
+   },
+   {
+    "name": "openai",
+    "adapter": "openai",
+    "label": "qwen",
+    "model": "qwen",
+    "base_url": "http://192.168.1.10:8000/v1",
+    "active": false,
+    "kind": "llm",
+    "api_key_env": "OPENAI_API_KEY",
+    "key": {
+     "name": "OPENAI_API_KEY",
+     "state": "unset",
+     "source": null,
+     "masked": "",
+     "shadowed": false
+    },
+    "settings": {
+     "model": "qwen",
+     "base_url": "http://192.168.1.10:8000/v1",
+     "max_tokens": 6000,
+     "temperature": 0.7,
+     "api_key_env": "OPENAI_API_KEY",
+     "request_timeout": 180.0,
+     "json_mode": "text"
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "json_mode",
+      "label": "Structured output",
+      "type": "select",
+      "options": [
+       "json_schema",
+       "json_object",
+       "text"
+      ],
+      "help": "json_schema is exact and right for an instruct model. A reasoning model must use text -- a grammar forces JSON from the first token and leaves it no room to think."
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number",
+      "help": "Raise it for a slow free-tier model."
+     },
+     {
+      "key": "disable_thinking",
+      "label": "Disable thinking mode",
+      "type": "bool",
+      "help": "For Qwen3 and similar served by vLLM. A reasoning model emits a scratchpad before every answer, which makes it slow and blocks grammar-constrained decoding. Off, it behaves like an instruct model and json_schema works."
+     }
+    ]
+   },
+   {
+    "name": "ollama",
+    "adapter": "ollama",
+    "label": "qwen2.5-coder:1.5b",
+    "model": "qwen2.5-coder:1.5b",
+    "base_url": "http://192.168.1.10:11434",
+    "active": false,
+    "kind": "llm",
+    "api_key_env": null,
+    "key": null,
+    "settings": {
+     "model": "qwen2.5-coder:1.5b",
+     "base_url": "http://192.168.1.10:11434",
+     "max_tokens": 8000,
+     "temperature": 0.7,
+     "request_timeout": 180.0,
+     "keep_alive": "30m"
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "keep_alive",
+      "label": "Keep model loaded",
+      "type": "text",
+      "help": "How long Ollama holds the model in memory. A cold reload between stages costs minutes."
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number"
+     }
+    ]
+   },
+   {
+    "name": "nemotron-openrouter",
+    "adapter": "openai",
+    "label": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "base_url": "https://openrouter.ai/api/v1",
+    "active": true,
+    "kind": "llm",
+    "api_key_env": "NEMOTRON_OPENROUTER_API_KEY",
+    "key": {
+     "name": "NEMOTRON_OPENROUTER_API_KEY",
+     "state": "set",
+     "source": "settings",
+     "masked": "abcd...wxyz",
+     "shadowed": false
+    },
+    "settings": {
+     "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+     "base_url": "https://openrouter.ai/api/v1",
+     "max_tokens": 16384,
+     "temperature": 0.7,
+     "api_key_env": "NEMOTRON_OPENROUTER_API_KEY",
+     "request_timeout": 180.0,
+     "json_mode": "json_schema"
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "json_mode",
+      "label": "Structured output",
+      "type": "select",
+      "options": [
+       "json_schema",
+       "json_object",
+       "text"
+      ],
+      "help": "json_schema is exact and right for an instruct model. A reasoning model must use text -- a grammar forces JSON from the first token and leaves it no room to think."
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number",
+      "help": "Raise it for a slow free-tier model."
+     },
+     {
+      "key": "disable_thinking",
+      "label": "Disable thinking mode",
+      "type": "bool",
+      "help": "For Qwen3 and similar served by vLLM. A reasoning model emits a scratchpad before every answer, which makes it slow and blocks grammar-constrained decoding. Off, it behaves like an instruct model and json_schema works."
+     }
+    ]
+   },
+   {
+    "name": "openrouter-gemini",
+    "adapter": "openai",
+    "label": "google/gemma-4-26b-a4b-it:free",
+    "model": "google/gemma-4-26b-a4b-it:free",
+    "base_url": "https://openrouter.ai/api/v1",
+    "active": false,
+    "kind": "llm",
+    "api_key_env": "NEMOTRON_OPENROUTER_API_KEY",
+    "key": {
+     "name": "NEMOTRON_OPENROUTER_API_KEY",
+     "state": "set",
+     "source": "settings",
+     "masked": "abcd...wxyz",
+     "shadowed": false
+    },
+    "settings": {
+     "model": "google/gemma-4-26b-a4b-it:free",
+     "base_url": "https://openrouter.ai/api/v1",
+     "max_tokens": 16384,
+     "temperature": 0.7,
+     "api_key_env": "NEMOTRON_OPENROUTER_API_KEY",
+     "request_timeout": 180.0,
+     "json_mode": "json_schema"
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "json_mode",
+      "label": "Structured output",
+      "type": "select",
+      "options": [
+       "json_schema",
+       "json_object",
+       "text"
+      ],
+      "help": "json_schema is exact and right for an instruct model. A reasoning model must use text -- a grammar forces JSON from the first token and leaves it no room to think."
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number",
+      "help": "Raise it for a slow free-tier model."
+     },
+     {
+      "key": "disable_thinking",
+      "label": "Disable thinking mode",
+      "type": "bool",
+      "help": "For Qwen3 and similar served by vLLM. A reasoning model emits a scratchpad before every answer, which makes it slow and blocks grammar-constrained decoding. Off, it behaves like an instruct model and json_schema works."
+     }
+    ]
+   },
+   {
+    "name": "vllm",
+    "adapter": "openai",
+    "label": "vLLM Qwen3-1.7B",
+    "model": "qwen",
+    "base_url": "http://192.168.1.10:8000/v1",
+    "active": false,
+    "kind": "llm",
+    "api_key_env": null,
+    "key": null,
+    "settings": {
+     "model": "qwen",
+     "base_url": "http://192.168.1.10:8000/v1",
+     "max_tokens": 6000,
+     "temperature": 0.5,
+     "request_timeout": 300.0,
+     "json_mode": "json_schema",
+     "disable_thinking": true
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "json_mode",
+      "label": "Structured output",
+      "type": "select",
+      "options": [
+       "json_schema",
+       "json_object",
+       "text"
+      ],
+      "help": "json_schema is exact and right for an instruct model. A reasoning model must use text -- a grammar forces JSON from the first token and leaves it no room to think."
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number",
+      "help": "Raise it for a slow free-tier model."
+     },
+     {
+      "key": "disable_thinking",
+      "label": "Disable thinking mode",
+      "type": "bool",
+      "help": "For Qwen3 and similar served by vLLM. A reasoning model emits a scratchpad before every answer, which makes it slow and blocks grammar-constrained decoding. Off, it behaves like an instruct model and json_schema works."
+     }
+    ]
+   },
+   {
+    "name": "mistral",
+    "adapter": "openai",
+    "label": "mistral-large-latest",
+    "model": "mistral-large-latest",
+    "base_url": "https://api.mistral.ai/v1",
+    "active": false,
+    "kind": "llm",
+    "api_key_env": "MISTRAL_API_KEY",
+    "key": {
+     "name": "MISTRAL_API_KEY",
+     "state": "set",
+     "source": "settings",
+     "masked": "abcd...wxyz",
+     "shadowed": false
+    },
+    "settings": {
+     "model": "mistral-large-latest",
+     "base_url": "https://api.mistral.ai/v1",
+     "max_tokens": 16384,
+     "temperature": 0.7,
+     "api_key_env": "MISTRAL_API_KEY",
+     "request_timeout": 180.0,
+     "json_mode": "json_object"
+    },
+    "fields": [
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "json_mode",
+      "label": "Structured output",
+      "type": "select",
+      "options": [
+       "json_schema",
+       "json_object",
+       "text"
+      ],
+      "help": "json_schema is exact and right for an instruct model. A reasoning model must use text -- a grammar forces JSON from the first token and leaves it no room to think."
+     },
+     {
+      "key": "max_tokens",
+      "label": "Max reply tokens",
+      "type": "number",
+      "help": "How long an ANSWER may be -- not the context window. The prompt and the reply share the window, so setting this near the window size leaves no room for the prompt and every request fails. Leave it well under: 4000-8000 suits a 16k model."
+     },
+     {
+      "key": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "step": 0.1
+     },
+     {
+      "key": "request_timeout",
+      "label": "Request timeout (s)",
+      "type": "number",
+      "help": "Raise it for a slow free-tier model."
+     },
+     {
+      "key": "disable_thinking",
+      "label": "Disable thinking mode",
+      "type": "bool",
+      "help": "For Qwen3 and similar served by vLLM. A reasoning model emits a scratchpad before every answer, which makes it slow and blocks grammar-constrained decoding. Off, it behaves like an instruct model and json_schema works."
+     }
+    ]
+   }
+  ],
+  "roles": {
+   "content": {
+    "profile": "nemotron-openrouter"
+   },
+   "storyboard": {},
+   "review": {}
+  },
+  "role_names": [
+   "content",
+   "storyboard",
+   "review"
+  ],
+  "presets": {
+   "all-local": {
+    "label": "All local",
+    "description": "Everything through the local model. Free and offline; the script will read like a 7B model wrote it.",
+    "roles": {}
+   },
+   "hybrid": {
+    "label": "Hybrid (recommended)",
+    "description": "Hosted model for the script and the storyboard, local for everything else. Pennies per reel, and the two roles that reward quality get it.",
+    "roles": {
+     "content": "__hosted__",
+     "storyboard": "__hosted__",
+     "review": "__local__"
+    }
+   },
+   "all-hosted": {
+    "label": "All hosted",
+    "description": "Every stage through the hosted model. Best results, still only cents per reel.",
+    "roles": {
+     "content": "__hosted__",
+     "storyboard": "__hosted__",
+     "review": "__hosted__"
+    }
+   }
+  },
+  "adapters": [
+   "anthropic",
+   "ollama",
+   "openai"
+  ],
+  "endpoints": {
+   "openai": {
+    "label": "OpenAI",
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env": "OPENAI_API_KEY",
+    "model": "gpt-4o",
+    "json_mode": "json_schema",
+    "hosted": true
+   },
+   "openrouter": {
+    "label": "OpenRouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "model": "anthropic/claude-sonnet-4.5",
+    "json_mode": "json_schema",
+    "hosted": true
+   },
+   "google": {
+    "label": "Google Gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "api_key_env": "GOOGLE_API_KEY",
+    "model": "gemini-flash-latest",
+    "json_mode": "json_schema",
+    "hosted": true
+   },
+   "xai": {
+    "label": "xAI Grok",
+    "base_url": "https://api.x.ai/v1",
+    "api_key_env": "XAI_API_KEY",
+    "model": "grok-4",
+    "json_mode": "json_schema",
+    "hosted": true
+   },
+   "mistral": {
+    "label": "Mistral",
+    "base_url": "https://api.mistral.ai/v1",
+    "api_key_env": "MISTRAL_API_KEY",
+    "model": "mistral-large-latest",
+    "json_mode": "json_object",
+    "hosted": true
+   },
+   "cohere": {
+    "label": "Cohere",
+    "base_url": "https://api.cohere.ai/compatibility/v1",
+    "api_key_env": "COHERE_API_KEY",
+    "model": "command-a-03-2025",
+    "json_mode": "json_object",
+    "hosted": true
+   },
+   "groq": {
+    "label": "Groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "api_key_env": "GROQ_API_KEY",
+    "model": "llama-3.3-70b-versatile",
+    "json_mode": "json_object",
+    "hosted": true
+   },
+   "together": {
+    "label": "Together",
+    "base_url": "https://api.together.xyz/v1",
+    "api_key_env": "TOGETHER_API_KEY",
+    "model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "json_mode": "json_schema",
+    "hosted": true
+   },
+   "vllm": {
+    "label": "vLLM (self-hosted)",
+    "base_url": "http://localhost:8000/v1",
+    "model": "",
+    "json_mode": "text",
+    "hosted": false,
+    "api_key_env": null
+   },
+   "lmstudio": {
+    "label": "LM Studio",
+    "base_url": "http://localhost:1234/v1",
+    "model": "",
+    "json_mode": "json_schema",
+    "hosted": false,
+    "api_key_env": null
+   }
+  }
+ },
+ "tts": {
+  "active": "elevenlabs",
+  "profiles": [
+   {
+    "name": "elevenlabs",
+    "adapter": "elevenlabs",
+    "label": "ElevenLabs (George)",
+    "model": "eleven_multilingual_v2",
+    "base_url": null,
+    "active": true,
+    "kind": "tts",
+    "api_key_env": "ELEVENLABS_API_KEY",
+    "key": {
+     "name": "ELEVENLABS_API_KEY",
+     "state": "set",
+     "source": "settings",
+     "masked": "abcd...wxyz",
+     "shadowed": false
+    },
+    "settings": {
+     "voice_id": "nPczCjzI2devNBz1zQrb",
+     "model": "eleven_multilingual_v2",
+     "output_format": "mp3_44100_128",
+     "stability": 0.65,
+     "similarity_boost": 0.75,
+     "style": 0,
+     "use_speaker_boost": true,
+     "max_characters_per_job": 4000,
+     "api_key_env": "ELEVENLABS_API_KEY",
+     "api_key_envs": [
+      "ELEVENLABS_API_KEY",
+      "ELEVENLABS_API_KEY_2",
+      "ELEVENLABS_API_KEY_3"
+     ]
+    },
+    "fields": [
+     {
+      "key": "voice_id",
+      "label": "Voice",
+      "type": "voice",
+      "help": "Pick from the voices on your account."
+     },
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "select",
+      "options": [
+       "eleven_multilingual_v2",
+       "eleven_turbo_v2_5",
+       "eleven_flash_v2_5",
+       "eleven_v3"
+      ]
+     },
+     {
+      "key": "output_format",
+      "label": "Output format",
+      "type": "select",
+      "options": [
+       "mp3_44100_128",
+       "mp3_44100_192",
+       "mp3_22050_32",
+       "pcm_44100"
+      ]
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     },
+     {
+      "key": "stability",
+      "label": "Stability",
+      "type": "number",
+      "step": 0.05,
+      "help": "Lower is more expressive, higher is more consistent."
+     },
+     {
+      "key": "similarity_boost",
+      "label": "Similarity boost",
+      "type": "number",
+      "step": 0.05
+     },
+     {
+      "key": "style",
+      "label": "Style",
+      "type": "number",
+      "step": 0.05
+     },
+     {
+      "key": "use_speaker_boost",
+      "label": "Speaker boost",
+      "type": "bool"
+     },
+     {
+      "key": "max_characters_per_job",
+      "label": "Character cap per job",
+      "type": "number",
+      "help": "Credits are metered per character. A 40 s reel is about 550-700, so this refuses an overlong job before it spends."
+     }
+    ]
+   },
+   {
+    "name": "openai",
+    "adapter": "openai",
+    "label": "openai",
+    "model": "gpt-4o-mini-tts",
+    "base_url": "https://api.openai.com/v1",
+    "active": false,
+    "kind": "tts",
+    "api_key_env": "OPENAI_API_KEY",
+    "key": {
+     "name": "OPENAI_API_KEY",
+     "state": "unset",
+     "source": null,
+     "masked": "",
+     "shadowed": false
+    },
+    "settings": {
+     "base_url": "https://api.openai.com/v1",
+     "model": "gpt-4o-mini-tts",
+     "voice": "onyx",
+     "api_key_env": "OPENAI_API_KEY"
+    },
+    "fields": [
+     {
+      "key": "voice",
+      "label": "Voice",
+      "type": "voice"
+     },
+     {
+      "key": "model",
+      "label": "Model",
+      "type": "text"
+     },
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "api_key_env",
+      "label": "API key variable",
+      "type": "keyname"
+     }
+    ]
+   },
+   {
+    "name": "local",
+    "adapter": "local",
+    "label": "local",
+    "model": "",
+    "base_url": "http://tts:8080",
+    "active": false,
+    "kind": "tts",
+    "api_key_env": null,
+    "key": null,
+    "settings": {
+     "base_url": "http://tts:8080",
+     "voice": "af_heart",
+     "engine": "kokoro"
+    },
+    "fields": [
+     {
+      "key": "base_url",
+      "label": "Base URL",
+      "type": "text"
+     },
+     {
+      "key": "voice",
+      "label": "Voice",
+      "type": "text"
+     },
+     {
+      "key": "engine",
+      "label": "Engine",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "name": "say",
+    "adapter": "say",
+    "label": "say",
+    "model": "",
+    "base_url": null,
+    "active": false,
+    "kind": "tts",
+    "api_key_env": null,
+    "key": null,
+    "settings": {
+     "voice": "Daniel",
+     "rate": 165
+    },
+    "fields": [
+     {
+      "key": "voice",
+      "label": "Voice",
+      "type": "text"
+     },
+     {
+      "key": "rate",
+      "label": "Words per minute",
+      "type": "number"
+     }
+    ]
+   },
+   {
+    "name": "upload",
+    "adapter": "upload",
+    "label": "upload",
+    "model": "",
+    "base_url": null,
+    "active": false,
+    "kind": "tts",
+    "api_key_env": null,
+    "key": null,
+    "settings": {},
+    "fields": []
+   }
+  ],
+  "adapters": [
+   "elevenlabs",
+   "local",
+   "openai",
+   "say",
+   "upload"
+  ]
+ },
+ "approval": {
+  "manual_stages": [],
+  "preset": "all-auto",
+  "stages": [
+   "ingest",
+   "content",
+   "cover",
+   "audio",
+   "align",
+   "storyboard",
+   "render",
+   "verify",
+   "package"
+  ]
+ },
+ "content": {
+  "script_mode": "auto",
+  "burn_captions": true,
+  "fact_check": "strict",
+  "target_seconds_min": 36.0,
+  "target_seconds_max": 44.0,
+  "max_attempts": 3
+ },
+ "overlay_path": "/Users/kamran/Programming/ClaudeProjects/githubrepos/data/settings.yaml"
+}

@@ -1,0 +1,21 @@
+# --- core service -------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+PyYAML==6.0.2
+httpx==0.28.1
+celery[redis]==5.4.0
+redis==5.2.1
+sse-starlette==2.2.1
+
+# --- rendering ----------------------------------------------------------
+# Pillow is pinned exactly: text metrics shift between versions and the
+# storyboards position everything by measured text width.
+Pillow==11.1.0
+numpy==2.2.1
+
+# --- providers ----------------------------------------------------------
+anthropic==0.42.0
+openai==1.59.6
