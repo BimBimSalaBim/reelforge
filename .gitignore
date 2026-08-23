@@ -22,11 +22,16 @@ docker/fonts/*.ttf
 !/requirements.txt
 !/requirements-dev.txt
 
-# Per-reel narration splits and storyboards for the hand-built reels. The app
-# writes its own into each job directory. The four storyboards used as worked
-# examples for code generation are shipped in app/templates/examples/ instead.
+# Per-reel narration splits. The app writes its own into each job directory.
 video/phrases/
-video/storyboards/
+
+# The hand-built storyboards ARE tracked, as worked examples. Three reasons:
+# they are the reference implementation of each design language; the code-
+# writing model is shown one as its example; and `example_storyboard()` falls
+# back to this directory when a name is not in app/templates/examples/, which
+# is how the `ledger` (caveman) and `slab` (anydoc) templates resolve theirs.
+# The reels themselves -- audio, video, covers, notes -- stay out.
+video/storyboards/__pycache__/
 
 # Branding renders
 profile-picture.png
