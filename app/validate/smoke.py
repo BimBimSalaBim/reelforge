@@ -21,8 +21,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import resource
 import traceback
+
+try:
+    import resource
+except ImportError:  # Windows: no rlimits; apply_limits becomes a no-op
+    resource = None
 from pathlib import Path
 
 #: Content outside these bounds is covered by platform UI, per video/kit.py.
@@ -60,6 +64,8 @@ MAX_MEAN_CUT_GAP = 8.0
 
 
 def apply_limits(memory_mb: int, cpu_seconds: int) -> None:
+    if resource is None:
+        return
     soft = memory_mb * 1024 * 1024
     for limit, value in (
         (resource.RLIMIT_AS, soft),

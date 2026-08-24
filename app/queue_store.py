@@ -55,7 +55,7 @@ def read() -> QueueSettings:
     explanation.
     """
     try:
-        return QueueSettings.model_validate_json(path().read_text())
+        return QueueSettings.model_validate_json(path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return QueueSettings()
 
@@ -84,8 +84,27 @@ def locked(timeout: float = 10.0):
     already do — but this makes the assumption survive a second one starting by
     accident rather than silently running two jobs.
     """
-    import fcntl
     import time
+
+    # fcntl is POSIX-only; on Windows the same exclusive, non-blocking
+    # semantics come from msvcrt.locking over the first byte of the file.
+    try:
+        import fcntl
+
+        def _try_lock(h):
+            fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        def _unlock(h):
+            fcntl.flock(h, fcntl.LOCK_UN)
+    except ImportError:
+        import msvcrt
+
+        def _try_lock(h):
+            msvcrt.locking(h.fileno(), msvcrt.LK_NBLCK, 1)
+
+        def _unlock(h):
+            h.seek(0)
+            msvcrt.locking(h.fileno(), msvcrt.LK_UNLCK, 1)
 
     path().parent.mkdir(parents=True, exist_ok=True)
     handle = open(path().parent / LOCK_FILE, "w")
@@ -93,7 +112,7 @@ def locked(timeout: float = 10.0):
     try:
         while True:
             try:
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _try_lock(handle)
                 break
             except OSError:
                 if time.monotonic() > deadline:
@@ -102,7 +121,7 @@ def locked(timeout: float = 10.0):
         yield
     finally:
         try:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+            _unlock(handle)
         finally:
             handle.close()
 

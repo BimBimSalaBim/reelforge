@@ -55,12 +55,12 @@ def _append_file(job_id: str, payload: str) -> None:
     try:
         path = _log_path(job_id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "a") as fh:
+        with open(path, "a", encoding="utf-8") as fh:
             fh.write(payload + "\n")
         # trim occasionally rather than on every line
         if path.stat().st_size > 256_000:
-            lines = path.read_text().splitlines()[-FILE_BACKLOG:]
-            path.write_text("\n".join(lines) + "\n")
+            lines = path.read_text(encoding="utf-8").splitlines()[-FILE_BACKLOG:]
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception:
         pass
 
@@ -90,7 +90,7 @@ def backlog(job_id: str, since: int = 0) -> list[dict]:
     except Exception:
         pass
     try:
-        lines = _log_path(job_id).read_text().splitlines()[-FILE_BACKLOG:]
+        lines = _log_path(job_id).read_text(encoding="utf-8").splitlines()[-FILE_BACKLOG:]
         return [json.loads(line) for line in lines[since:] if line.strip()]
     except Exception:
         return []
@@ -98,7 +98,7 @@ def backlog(job_id: str, since: int = 0) -> list[dict]:
 
 def file_event_count(job_id: str) -> int:
     try:
-        return sum(1 for line in _log_path(job_id).read_text().splitlines() if line.strip())
+        return sum(1 for line in _log_path(job_id).read_text(encoding="utf-8").splitlines() if line.strip())
     except Exception:
         return 0
 

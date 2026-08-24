@@ -64,7 +64,7 @@ def load_align(workspace: Path):
 def read_phrases(path: Path) -> list[str]:
     return [
         line.strip()
-        for line in path.read_text().splitlines()
+        for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
 
@@ -175,7 +175,7 @@ def main() -> int:
         "phrases": phrases,
         "words": words,
     }
-    out_path.write_text(json.dumps(payload, indent=1))
+    out_path.write_text(json.dumps(payload, indent=1), encoding="utf-8")
 
     rates = [
         {"phrase": phrase, "start": seg[0], "end": seg[1],

@@ -60,10 +60,26 @@ def _atomic_write(path: Path, text: str, mode: int | None = None) -> None:
             os.fsync(fh.fileno())
         if mode is not None:
             os.chmod(tmp, mode)
-        os.replace(tmp, path)
+        _replace_with_retry(tmp, path)
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
+
+
+def _replace_with_retry(tmp: Path, path: Path, attempts: int = 8) -> None:
+    """`os.replace` is atomic on every platform, but on Windows it fails with
+    EACCES while another process -- or the other half of a double-click --
+    has the target open for its own replace. A few short retries cover it."""
+    import time
+
+    for attempt in range(attempts):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 # ------------------------------------------------------------- overlay -----
@@ -72,7 +88,7 @@ def read_overlay() -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        return yaml.safe_load(path.read_text()) or {}
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError:
         # a corrupt overlay must not make the app unstartable
         return {}
@@ -132,7 +148,7 @@ def read_secrets() -> dict[str, str]:
     if not path.exists():
         return {}
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
     return {str(k): str(v) for k, v in data.items() if isinstance(v, (str, int))}

@@ -70,6 +70,37 @@ def system_ffmpeg() -> str:
     )
 
 
+#: The encode settings (see app/render/encode.py) name colour properties the
+#: way ffmpeg has accepted them since 4.0. Older builds fail the chunk encoder.
+MIN_FFMPEG = (4, 0)
+
+
+def ffmpeg_version(binary: str) -> tuple[int, int] | None:
+    """(major, minor) from `ffmpeg -version`, or None when it cannot be read.
+
+    Git builds report `N-55702-g920046a` rather than a number; those carry a
+    `libavcodec` line whose major version dates them, and anything below
+    libavcodec 58 (ffmpeg 4.0) is too old.
+    """
+    import re
+
+    try:
+        proc = subprocess.run([binary, "-version"], capture_output=True, text=True,
+                              timeout=20, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    head = proc.stdout.splitlines()[0] if proc.stdout else ""
+    match = re.search(r"ffmpeg version n?(\d+)\.(\d+)", head)
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    lav = re.search(r"libavcodec\s+(\d+)\.", proc.stdout)
+    if lav:
+        major = int(lav.group(1))
+        # libavcodec 58 shipped with ffmpeg 4.0; earlier majors map below it
+        return (4, 0) if major >= 58 else (major - 54, 0)
+    return None
+
+
 def ffmpeg_bin(video_dir: Path | None = None) -> str:
     video_dir = video_dir or get_config().paths.video
     if vendored_ffmpeg_usable(str(video_dir)):

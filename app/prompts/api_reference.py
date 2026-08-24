@@ -119,7 +119,7 @@ EXAMPLE_DIR = Path(__file__).resolve().parent.parent / "templates" / "examples"
 def example_storyboard(name: str = "ruflo") -> str:
     path = EXAMPLE_DIR / f"{name}.py"
     if path.exists():
-        return path.read_text()
+        return path.read_text(encoding="utf-8")
     # A working copy that still has the original renderer's storyboards.
     legacy = get_config().paths.video / "storyboards" / f"{name}.py"
-    return legacy.read_text() if legacy.exists() else ""
+    return legacy.read_text(encoding="utf-8") if legacy.exists() else ""
