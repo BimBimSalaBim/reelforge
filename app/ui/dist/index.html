@@ -208,9 +208,9 @@ function ico(name,size){
     stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]||ICONS.spark}"/></svg>`;
 }
 
-const STAGES = ['ingest','content','cover','audio','align','storyboard','render','verify','package'];
+const STAGES = ['ingest','content','cover','visuals','audio','align','storyboard','render','verify','package'];
 
-let state = {jobs:[], job:null, stage:null, es:null, lines:[]};
+let state = {jobs:[], job:null, stage:null, es:null, lines:[], view:'job'};
 
 // ---------------------------------------------------------------- jobs ---
 state.tab = 'current';
@@ -271,6 +271,7 @@ async function deleteJob(id, slug){
 }
 
 async function openJob(id, stage){
+  state.view = 'job';
   state.job = await api('/api/jobs/'+id);
   state.stage = stage || state.job.failed_stage || state.job.next_stage || 'package';
   // Seed from the job's own log rather than starting blank. It is written to
@@ -332,6 +333,7 @@ async function renderMain(){
       <button onclick="cycleFactCheck()">Facts: ${esc(j.fact_check||'strict')}</button>
       <button onclick="openJob(state.job.id,'images')">Screenshots: ${(j.images||[]).length}</button>
       <button onclick="changeJobModel()">Model: ${esc((j.resolved.content||{}).profile||'default')}</button>
+      <button onclick="cycleVisuals()" title="Generated stills, a clip and a cover backdrop from ComfyUI; 'music' adds a bed under the narration">Visuals: ${visualsLabel(j)}</button>
       ${j.archived?`<button onclick="unarchiveJob('${j.id}')">Restore from archive</button>`
                   :`<button onclick="archiveJob('${j.id}')">Archive</button>`}
     </div>
@@ -342,13 +344,17 @@ async function renderMain(){
     <b>${esc(j.resolved.content.profile)}</b> (${esc(j.resolved.content.model||'')})
     for the script${j.resolved.storyboard && j.resolved.storyboard.profile!==j.resolved.content.profile
       ? `, <b>${esc(j.resolved.storyboard.profile)}</b> for the storyboard`:''},
-    and <b>${esc(j.resolved.voice.profile)}</b> for narration
+    and <b>${esc(j.resolved.voice.profile)}</b> for narration${
+      j.resolved.visuals && j.resolved.visuals.enabled
+        ? `, <b>${esc(j.resolved.visuals.profile)}</b> for generated visuals (${j.resolved.visuals.stills} still(s), ${j.resolved.visuals.clips} clip(s)${j.resolved.visuals.music?', a music bed':''})`
+        : ''}
     &mdash; ${esc(j.resolved.content.source)}.
     Older lines in the activity log may name a provider used on a previous run.</div>`;
   if(s.blocked_by&&s.blocked_by.length) html += `<div class="card small muted">Blocked by: ${s.blocked_by.join(', ')}</div>`;
 
   const panes = {content:paneContent, audio:paneAudio, align:paneAlign,
                  storyboard:paneStoryboard, cover:paneCover, render:paneRender,
+                 visuals:paneVisuals,
                  verify:paneVerify, package:panePackage, ingest:paneMeta,
                  images:paneImages};
   $('#main').innerHTML = html + '<div id="pane"></div>';
@@ -503,6 +509,63 @@ async function saveStoryboard(){
       headers:{'content-type':'text/plain'},body:$('#sbsrc').value});
     note(r.ok?'storyboard accepted':'problems: '+r.problems.join(' | '));
   }catch(e){ alert(e.message); }
+}
+
+function visualsLabel(j){
+  const v = j.visuals || {};
+  if(v.enabled===false) return 'off';
+  if(v.enabled===true) return v.music ? 'on + music' : 'on';
+  const r = (j.resolved||{}).visuals || {};
+  return 'configured (' + (r.enabled ? 'on' : 'off') + ')';
+}
+
+// configured -> on -> on + music -> off -> configured
+async function cycleVisuals(){
+  const v = state.job.visuals || {};
+  let next;
+  if(v.enabled==null) next = {enabled:true, music:null};
+  else if(v.enabled && !v.music) next = {enabled:true, music:true};
+  else if(v.enabled && v.music) next = {enabled:false, music:null};
+  else next = {enabled:null, music:null};
+  try{
+    state.job = await api(`/api/jobs/${state.job.id}`,{method:'PATCH',
+      headers:{'content-type':'application/json'}, body:JSON.stringify({visuals:next})});
+    note('generated visuals: ' + visualsLabel(state.job)); renderJob();
+  }catch(e){ alert(e.message); }
+}
+
+async function paneVisuals(s){
+  const m = s.meta||{};
+  if(m.enabled===false){
+    $('#pane').innerHTML = `<div class="card small muted">Generated visuals are off for this reel.
+      Turn them on with the Visuals button above, or under Settings, and this stage draws
+      stills, a clip and a cover backdrop from the script's directions.</div>`;
+    return;
+  }
+  let manifest = null;
+  try{ manifest = await api(`/api/jobs/${state.job.id}/artifacts/${(s.artifacts||{}).visuals||'visuals/visuals.json'}`); }catch(e){}
+  const assets = (manifest && manifest.assets) || [];
+  if(!assets.length){ $('#pane').innerHTML = metaCard(s) || '<div class="empty">Nothing generated yet.</div>'; return; }
+  const base = `/api/jobs/${state.job.id}/artifacts/`;
+  $('#pane').innerHTML = assets.map(a=>{
+    const title = a.kind==='music' ? 'music bed'
+      : `${a.kind} ${a.index} &mdash; scene ${a.scene_index}${a.scene_title?': '+esc(a.scene_title):''}`;
+    let body;
+    if(!a.ok) body = `<div class="err">${esc(a.error||'failed')}</div>`;
+    else if(a.kind==='still') body = `<img class="shot" src="${base}${esc(a.file)}?t=${Date.now()}">`;
+    else if(a.kind==='music') body = `<audio controls preload="none" src="${base}${esc(a.source||a.file)}"></audio>`;
+    else if(a.source) body = `<video controls loop muted preload="metadata" class="shot"
+                   poster="${base}${esc(a.file)}/00001.jpg" src="${base}${esc(a.source)}"></video>`;
+    else { const mid = String(Math.max(1,Math.floor((a.frames||1)/2))).padStart(5,'0');
+           body = `<div class="row"><img class="shot" style="max-width:48%" src="${base}${esc(a.file)}/00001.jpg">
+                   <img class="shot" style="max-width:48%" src="${base}${esc(a.file)}/${mid}.jpg"></div>`; }
+    const badge = !a.ok ? 'failed' : a.kind==='clip' ? `${a.frames} frames @ ${a.fps} fps`
+                : a.kind==='music' ? `${a.seconds} s` : `${a.width}&times;${a.height}`;
+    return `<div class="card"><div class="row mb"><b class="grow">${title}</b><span class="badge ${a.ok?'ok':'bad'}">${badge}</span></div>
+      ${body}<div class="small muted" style="margin-top:6px">seed ${a.seed}</div>
+      <div class="small muted">${esc(a.prompt||'')}</div></div>`;
+  }).join('') + (m.problems && m.problems.length
+      ? `<div class="card small warn">${m.problems.map(x=>esc(x.asset+': '+x.error)).join('<br>')}</div>` : '');
 }
 
 async function paneCover(s){
@@ -696,7 +759,11 @@ function connect(id){
 let refreshTimer=null;
 function refresh(){ clearTimeout(refreshTimer);
   refreshTimer=setTimeout(async()=>{ if(state.job){ const s=state.stage;
-    state.job = await api('/api/jobs/'+state.job.id); state.stage=s; renderJob(); loadJobs(); } },350); }
+    state.job = await api('/api/jobs/'+state.job.id); state.stage=s;
+    // a stream event must not overwrite Settings or the New reel form: the
+    // job view is redrawn only while it is the view on screen
+    if(state.view==='job') renderJob();
+    loadJobs(); } },350); }
 function note(line){
   state.lines.push(line); if(state.lines.length>400) state.lines.shift();
   const el=$('#log'); if(el){ el.textContent = state.lines.join('\n'); el.scrollTop=el.scrollHeight; }
@@ -704,6 +771,7 @@ function note(line){
 
 // ---------------------------------------------------------------- modals -
 async function showNew(){
+  state.view = 'new';
   // Render from the probe-free endpoint so the form appears immediately.
   // Reachability is a network call to third parties -- it used to block this
   // form for 16 seconds with one dead endpoint configured -- so it arrives
@@ -748,6 +816,15 @@ async function showNew(){
         </select>
         <div id="voicepick" style="margin-top:7px"></div></div>
     </div>
+    <div class="field"><label>Generated visuals</label>
+      <select id="nvisuals">
+        <option value="">use configured (${(profiles.visuals||{}).enabled ? 'on: '+esc((profiles.visuals||{}).selected) : 'off'})</option>
+        <option value="on">On &mdash; stills and a clip from the script, a backdrop under the cover</option>
+        <option value="music">On, with a music bed under the narration</option>
+        <option value="off">Off &mdash; the renderer draws everything</option>
+      </select>
+      <div class="small muted" style="margin-top:4px">Needs a ComfyUI profile under Settings.
+      Generation is slow: a clip is minutes on a GPU box.</div></div>
     <div class="field"><label>Approval</label>
       <select id="ngates">
         <option value="">use the saved default</option>
@@ -867,6 +944,8 @@ async function createJob(){
         llm_provider:$('#nllm').value||null, tts_provider:$('#ntts').value||null,
         tts_voice:($('#nvoice')&&$('#nvoice').value)||null,
         manual_stages:gatesChoice(),
+        visuals: $('#nvisuals').value==='' ? null
+               : {enabled: $('#nvisuals').value!=='off', music: $('#nvisuals').value==='music' ? true : null},
         autostart:PENDING_IMAGES.length===0})});
     if(PENDING_IMAGES.length){
       // upload before starting, so the storyboard is written knowing about them
@@ -1046,6 +1125,7 @@ async function removeImage(id){
 let SETTINGS = null;
 
 async function showSettings(){
+  state.view = 'settings';
   SETTINGS = await api('/api/settings');
   renderSettings();
   $('#side').innerHTML = `<h2>About settings</h2>
@@ -1086,7 +1166,9 @@ function renderSettings(){
     </div>
 
     ${profileSection('llm','Language models','Several profiles may share an adapter — an OpenAI-compatible endpoint reaches OpenAI, vLLM, LM Studio, Groq and OpenRouter alike.')}
-    ${profileSection('tts','Voices','Upload is always available so a job can fall back to narration you supply yourself.')}
+    ${profileSection('tts','Voices','Upload is always available so a job can fall back to narration you supply yourself. A <b>fish</b> profile drives a self-hosted Fish-Speech app and can clone a voice from a sample you upload in its editor.')}
+    ${profileSection('visuals','Generated visuals','A ComfyUI server that draws stills for the scenes, a short clip, a backdrop under the cover, and optionally a music bed and the cut sounds. <b>none</b> is always available and means every reel is drawn by the renderer alone, exactly as before.')}
+    ${visualsOptionsSection()}
 
     <div class="sec">
       <h3>Approval gates</h3>
@@ -1116,6 +1198,41 @@ function renderSettings(){
       <div id="secrets">loading…</div>
     </div>`;
   loadSecrets();
+}
+
+function visualsOptionsSection(){
+  const v = SETTINGS.visuals || {}; const o = v.options || {};
+  const num = (key,label,min,max,step)=>`<div class="field"><label>${label}</label>
+      <input type="number" min="${min}" max="${max}" step="${step||1}" value="${o[key]??''}"
+        onchange="setVisualsOption('${key}', ${step&&step<1?'parseFloat':'parseInt'}(this.value))"></div>`;
+  const box = (key,label,hint)=>`<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+      <input type="checkbox" ${o[key]?'checked':''} style="width:auto" onchange="setVisualsOption('${key}', this.checked)">${label}</label>
+      <div class="small muted" style="margin-top:4px">${hint}</div></div>`;
+  return `<div class="sec">
+    <h3>Generated visuals &mdash; how much, and the look</h3>
+    <p>${v.enabled
+      ? `Active profile <b>${esc(v.active)}</b>. Each reel gets stills from its scenes' on-screen directions, a clip from the scene with a shot description, and a backdrop under the cover's typography. Counts are ceilings; a short script gets fewer.`
+      : 'Off. Add a ComfyUI profile above and press Use to turn generated imagery on.'}</p>
+    <div class="split">${num('stills','Stills per reel',0,6)}${num('clips','Clips per reel',0,3)}</div>
+    <div class="split">${num('clip_seconds','Clip length (s)',2,10,0.5)}
+      <div class="field"><label>Still placement</label><select onchange="setVisualsOption('still_fit', this.value)">
+        ${['full','panel'].map(x=>`<option value="${x}" ${o.still_fit===x?'selected':''}>${x}</option>`).join('')}</select></div></div>
+    ${box('cover','Cover backdrop from the image model','paint the cover over a generated picture; the typography stays the same')}
+    ${box('music','Music bed under the narration','an instrumental from the audio workflow, ducked under the voice; off by default because the reels are voice-first')}
+    <div class="split">${num('music_gain_db','Bed level (dB)',-40,-6)}${num('music_duck_db','Duck under voice (dB)',-24,0)}</div>
+    ${box('sfx_samples','Cut sounds from generated samples','one-shots from the audio workflow instead of the synthesized set; made once per profile and reused')}
+    <div class="small muted" style="margin:4px 0 8px">Stable Audio makes music and sound effects, not speech &mdash; narration still comes from a voice profile or an upload.</div>
+    <div class="field"><label>Style suffix, added to every prompt</label><textarea id="vis-style" rows="2">${esc(o.style||'')}</textarea></div>
+    <div class="field"><label>Negative prompt override</label><input id="vis-negative" value="${esc(o.negative||'')}" placeholder="empty keeps each workflow's own"></div>
+    <button onclick="setVisualsOption('style', $('#vis-style').value, $('#vis-negative').value)">Save style</button>
+  </div>`;
+}
+
+async function setVisualsOption(key, value, negative){
+  const patch = {}; patch[key] = value;
+  if(negative!==undefined) patch.negative = negative;
+  await settingsCall('/visuals/options',{method:'PUT',
+    headers:{'content-type':'application/json'}, body:JSON.stringify(patch)});
 }
 
 function presetMatches(key){
@@ -1153,7 +1270,7 @@ function profileSection(kind,title,blurb){
                   :`<button onclick="activate('${kind}','${p.name}')">Use</button>
                     <button onclick="removeProfile('${kind}','${p.name}')">Remove</button>`}
       </div>`).join('')}
-    <button onclick="addProfile('${kind}')">Add a ${kind==='llm'?'model':'voice'} profile</button>
+    <button onclick="addProfile('${kind}')">Add ${({llm:'a model',tts:'a voice',visuals:'an image generator'})[kind]||'a '+kind} profile</button>
   </div>`;
 }
 
@@ -1206,9 +1323,10 @@ async function testProfile(kind,name){
   const el = $('#t-'+kind+'-'+name); if(el){ el.textContent='…'; el.className='badge'; }
   try{
     const r = await api(`/api/settings/${kind}/profiles/${name}/test`,{method:'POST'});
-    if(el){ el.textContent = r.reachable?'reachable':'unreachable';
-            el.className = 'badge '+(r.reachable?'ok':'bad');
-            if(r.error) el.title = r.error; }
+    if(el){ el.textContent = r.reachable ? (r.error ? 'reachable, but…' : 'reachable') : 'unreachable';
+            el.className = 'badge '+(r.reachable ? (r.error ? 'warn' : 'ok') : 'bad');
+            if(r.error) el.title = r.error;
+            else if(r.note) el.title = r.note; }
     if(r.warning){
       const row = el && el.closest('.prof');
       if(row && !row.querySelector('.warnrow'))
@@ -1225,6 +1343,9 @@ async function testProfile(kind,name){
       bal.title = rows.map(b=>`${b.label}: ${b.used}/${b.limit} used (${b.tier||'?'})`).join('\n');
     } else if(bal && r.reachable && (r.voice_name)){
       bal.style.display=''; bal.className='badge'; bal.textContent = r.voice_name.split(' - ')[0];
+    } else if(bal && r.reachable && r.devices && r.devices.length){
+      bal.style.display=''; bal.className='badge';
+      bal.textContent = r.devices.map(d=>(d.name||'gpu').replace(/ : .*$/,'')+(d.vram_gb?' '+d.vram_gb+' GB':'')).join(', ');
     }
   }catch(e){ if(el){ el.textContent='error'; el.className='badge bad'; el.title=e.message; } }
 }
@@ -1240,7 +1361,7 @@ function addProfile(kind){
   const adapters = SETTINGS[kind].adapters;
   const endpoints = (SETTINGS.llm.endpoints)||{};
   const known = kind==='llm' ? Object.entries(endpoints) : [];
-  const d = modal(`<h2>New ${kind==='llm'?'model':'voice'} profile</h2>
+  const d = modal(`<h2>New ${({llm:'model',tts:'voice',visuals:'image generator'})[kind]||kind} profile</h2>
     ${known.length?`<div class="field"><label>Start from a known service</label>
       <select id="p-known"><option value="">custom…</option>
         ${known.map(([k,v])=>`<option value="${k}">${esc(v.label)}${
@@ -1309,6 +1430,17 @@ function fieldControl(f, value){
     return `<div class="field"><label>${esc(f.label)}</label>
       <select id="${id}"><option value="${esc(value??'')}">${esc(value??'(none)')}</option></select>
       <div class="small muted" id="${id}-note" style="margin-top:4px">loading voices…</div>${help}</div>`;
+  if(f.type==='audio'){
+    const current = value ? String(value).split(/[\\/]/).pop() : '';
+    return `<div class="field"><label>${esc(f.label)}</label>
+      <div class="small" id="${id}-status">${current ? 'sample: '+esc(current) : 'no sample — the adapter will fix a voice itself'}</div>
+      <div id="${id}-player"></div>
+      <input type="file" id="${id}-file" accept=".wav,.mp3,.m4a,.flac,.ogg,.aac" style="margin-top:6px">
+      <input id="${id}-transcript" placeholder="what the sample says (optional, improves cloning)" style="margin-top:6px">
+      <div class="row" style="margin-top:6px"><button type="button" id="${id}-upload">Upload sample</button>
+        ${current?`<button type="button" id="${id}-remove">Remove</button>`:''}</div>
+      <input id="${id}" type="hidden" value="${esc(value??'')}">${help}</div>`;
+  }
   const type = f.type==='number' ? 'number' : 'text';
   const step = f.step?` step="${f.step}"`:'';
   return `<div class="field"><label>${esc(f.label)}</label>
@@ -1357,12 +1489,35 @@ async function editProfile(kind, name){
     }
   }
 
+  // a sample-voice field uploads to the profile directly; the path is never typed
+  for(const f of (p.fields||[]).filter(f=>f.type==='audio')){
+    const id = '#f-'+f.key;
+    if(vals[f.key]) d.querySelector(id+'-player').innerHTML =
+      `<audio controls preload="none" src="/api/settings/${kind}/profiles/${encodeURIComponent(name)}/reference"></audio>`;
+    d.querySelector(id+'-upload').onclick = async () => {
+      const file = d.querySelector(id+'-file').files[0];
+      if(!file) return alert('choose an audio file first');
+      const fd = new FormData(); fd.append('file', file);
+      const t = d.querySelector(id+'-transcript').value.trim(); if(t) fd.append('transcript', t);
+      try{
+        await settingsCall(`/${kind}/profiles/${encodeURIComponent(name)}/reference`,{method:'POST', body:fd});
+        note('sample voice saved for '+name); d.remove(); editProfile(kind, name);
+      }catch(e){ alert(e.message); }
+    };
+    const rm = d.querySelector(id+'-remove');
+    if(rm) rm.onclick = async () => {
+      await settingsCall(`/${kind}/profiles/${encodeURIComponent(name)}/reference`,{method:'DELETE'});
+      note('sample removed'); d.remove(); editProfile(kind, name);
+    };
+  }
+
   d.querySelector('#e-save').onclick = async () => {
     const extra = {};
     let model = p.model, base_url = p.base_url, api_key_env = p.api_key_env;
     for(const f of (p.fields||[])){
       const el = d.querySelector('#f-'+f.key);
       if(!el) continue;
+      if(f.type==='audio') continue;   // stored by the upload, not by this form
       let v = f.type==='bool' ? el.checked : el.value.trim();
       if(f.type==='number') v = v==='' ? null : Number(v);
       if(v===null || v==='') continue;

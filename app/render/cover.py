@@ -26,7 +26,7 @@ class CoverError(RuntimeError):
 
 
 def render_cover(
-    content: ReelContent, workspace: Path, out_png: Path
+    content: ReelContent, workspace: Path, out_png: Path, *, backdrop: Path | None = None
 ) -> tuple[Path, list[dict]]:
     """Render via a subprocess: covers.py calls kit.set_palette, which mutates
     module globals, and the worker must not inherit that."""
@@ -34,17 +34,21 @@ def render_cover(
     spec_json = out_png.parent / f".{content.slug}.cover.json"
     spec_json.parent.mkdir(parents=True, exist_ok=True)
     spec_json.write_text(
-        __import__("json").dumps(content.cover.to_covers_dict(out_png.name))
+        __import__("json").dumps(content.cover.to_covers_dict(out_png.name)),
+        encoding="utf-8",
     )
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root) + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
+    cmd = [sys.executable or "python3", "-m", "app.render.shim_cover",
+           "--workspace", str(workspace), "--spec", str(spec_json),
+           "--key", content.slug, "--out", str(out_png)]
+    if backdrop and Path(backdrop).exists():
+        cmd += ["--backdrop", str(backdrop)]
     proc = subprocess.run(
-        [sys.executable or "python3", "-m", "app.render.shim_cover",
-         "--workspace", str(workspace), "--spec", str(spec_json),
-         "--key", content.slug, "--out", str(out_png)],
+        cmd,
         capture_output=True, text=True, cwd=repo_root, env=env, check=False,
     )
     spec_json.unlink(missing_ok=True)

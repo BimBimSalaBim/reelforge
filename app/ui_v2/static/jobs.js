@@ -13,7 +13,7 @@
   "use strict";
 
   var el, fmt;
-  var STAGE_ORDER = ["ingest", "content", "cover", "audio", "align",
+  var STAGE_ORDER = ["ingest", "content", "cover", "visuals", "audio", "align",
                      "storyboard", "render", "verify", "package"];
 
   var state = { tab: "current", filter: "", jobs: [], queue: null, fingerprint: "" };
@@ -208,7 +208,7 @@
          (job.template ? " · " + job.template : "")),
       stageBar(job, queueEntry),
       el("div", { class: "cluster", "data-gap": "2" },
-        el("span", { class: "jobcard__meta grow" }, done + " of 9 stages"),
+        el("span", { class: "jobcard__meta grow" }, done + " of " + STAGE_ORDER.length + " stages"),
         el("span", { class: "jobcard__meta" }, fmt.relTime(job.updated_at)))
     );
   }

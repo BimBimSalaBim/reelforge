@@ -32,6 +32,10 @@ class Template:
     family: str = "bloom"
     palette: dict = field(default_factory=dict)
     motif: str = "flow"
+    #: the music bed's character, when one is generated. A genre and a few
+    #: instruments; the stage adds the rules (instrumental, steady, under a
+    #: voice) and the length.
+    music: str = "minimal ambient electronic with soft synth pads and a gentle pulse"
     directory: Path | None = None
 
     @property
@@ -40,7 +44,7 @@ class Template:
         if self.directory:
             local = self.directory / "example.py"
             if local.exists():
-                return local.read_text()
+                return local.read_text(encoding="utf-8")
         from app.prompts.api_reference import example_storyboard
 
         return example_storyboard(self.example)
@@ -56,7 +60,8 @@ class Template:
 #: an existing storyboard as its worked example rather than duplicating one.
 BUILTIN: dict[str, Template] = {
     "cool-indigo": Template(
-        name="cool-indigo", title="Cool indigo",
+        name="cool-indigo",
+        music="minimal ambient electronic with soft synth pads, a gentle pulse and sparse plucked notes", title="Cool indigo",
         description="Indigo and teal on near-black. Equation opener, pipeline "
                     "diagram, hard-landing end card.",
         tone_hint="Cool and technical. Lead with a definition or an equation, "
@@ -65,7 +70,8 @@ BUILTIN: dict[str, Template] = {
         palette={"bg": [9, 9, 18], "accent": [124, 124, 248], "support": [64, 224, 208]},
     ),
     "warm-amber": Template(
-        name="warm-amber", title="Warm amber",
+        name="warm-amber",
+        music="warm lo-fi hip hop with mellow electric piano, soft vinyl crackle and a laid-back beat", title="Warm amber",
         description="Amber on warm black. Urgency and momentum; good for a "
                     "project whose story is speed or scale.",
         tone_hint="Warm and urgent. Lead with the number that makes people look "
@@ -74,7 +80,8 @@ BUILTIN: dict[str, Template] = {
         palette={"bg": [10, 8, 9], "accent": [232, 129, 60], "support": [246, 201, 160]},
     ),
     "editorial": Template(
-        name="editorial", title="Editorial",
+        name="editorial",
+        music="sparse solo piano with soft strings, calm, spacious and unhurried", title="Editorial",
         description="Restrained, typographic, lots of air. Good for design and "
                     "documentation tools.",
         tone_hint="Editorial and calm. Large type, generous space, few elements "
@@ -83,7 +90,8 @@ BUILTIN: dict[str, Template] = {
         palette={"bg": [8, 9, 12], "accent": [120, 190, 255], "support": [255, 200, 120]},
     ),
     "research": Template(
-        name="research", title="Research",
+        name="research",
+        music="slow ambient arpeggios, airy textures and a quiet sub pulse", title="Research",
         description="Green on deep green-black. Flow diagrams and stage "
                     "pipelines; good for agent and workflow systems.",
         tone_hint="Systems-focused. Show the flow: stages, hand-offs, what runs "
@@ -133,7 +141,7 @@ def discover() -> dict[str, Template]:
         manifest = entry / "template.yaml"
         if not entry.is_dir() or not manifest.exists():
             continue
-        data = yaml.safe_load(manifest.read_text()) or {}
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
         name = data.get("name", entry.name)
         found[name] = Template(
             name=name,

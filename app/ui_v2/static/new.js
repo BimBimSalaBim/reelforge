@@ -225,7 +225,18 @@
                 selected: (profiles.fact_check || "strict") === pair[0] }, pair[1]);
             })),
           "Every figure on screen and in the narration must trace to the API or " +
-          "to the project's own README."))),
+          "to the project's own README."),
+        field("Generated visuals",
+          el("select", { class: "select", name: "visuals" },
+            [["", "use configured (" + (((profiles.visuals || {}).enabled)
+                 ? "on: " + (profiles.visuals || {}).selected : "off") + ")"],
+             ["on", "On: stills and a clip from the script, a backdrop under the cover"],
+             ["music", "On, with a music bed under the narration"],
+             ["off", "Off: the renderer draws everything"]].map(function (pair) {
+              return el("option", { value: pair[0] }, pair[1]);
+            })),
+          "Needs a ComfyUI profile under Settings. Generation is slow: a clip is " +
+          "minutes on a GPU box."))),
 
       section("Model and voice", "Leave these alone to use the configured defaults.",
         el("div", { class: "stack", "data-gap": "3" },
@@ -289,6 +300,9 @@
       fact_check: value("fact_check"),
       llm_provider: value("llm_provider") || null,
       tts_provider: value("tts_provider") || null,
+      visuals: value("visuals") === "" ? null
+        : { enabled: value("visuals") !== "off",
+            music: value("visuals") === "music" ? true : null },
       manual_stages: gates === "" ? null : (gates === "all" ? STAGES : []),
       // With screenshots staged the job is created stopped, so they can be
       // uploaded before the storyboard is written -- it picks one layout per

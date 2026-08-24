@@ -10,6 +10,15 @@ from pydantic import BaseModel, Field
 from app.models.job import STAGE_ORDER, Job
 
 
+class VisualsChoiceIn(BaseModel):
+    enabled: bool | None = None
+    stills: int | None = Field(default=None, ge=0, le=6)
+    clips: int | None = Field(default=None, ge=0, le=3)
+    cover: bool | None = None
+    music: bool | None = None
+    profile: str | None = None
+
+
 class CreateJobRequest(BaseModel):
     url: str | None = Field(
         default=None,
@@ -25,6 +34,8 @@ class CreateJobRequest(BaseModel):
     llm_model: str | None = None
     tts_provider: str | None = None
     tts_voice: str | None = None
+    #: generated stills/clips/cover backdrop. Each None means the saved default.
+    visuals: VisualsChoiceIn | None = None
     #: start the pipeline immediately rather than waiting for an explicit run
     autostart: bool = True
 
@@ -49,6 +60,7 @@ class JobView(BaseModel):
     images: list[dict] = Field(default_factory=list)
     source: dict[str, Any]
     providers: dict[str, Any]
+    visuals: dict[str, Any] = Field(default_factory=dict)
     manual_stages: list[str]
     created_at: str
     updated_at: str
@@ -70,6 +82,7 @@ class JobView(BaseModel):
             images=[i.model_dump() for i in job.images],
             source=job.source.model_dump(mode="json"),
             providers=job.providers.model_dump(mode="json"),
+            visuals=job.visuals.model_dump(mode="json"),
             manual_stages=[s.value for s in job.manual_stages],
             created_at=job.created_at.isoformat(),
             updated_at=job.updated_at.isoformat(),
@@ -119,6 +132,15 @@ def _resolve(job: Job) -> dict[str, Any]:
             "profile": name, "model": binding.model or profile.model,
             "source": "role routing" if binding.target() else "active profile",
         }
+    from app.stages.pipeline import visuals_settings
+
+    visuals = visuals_settings(job)
+    visuals_profile = cfg.visuals.profiles.get(visuals["profile"])
+    out["visuals"] = visuals | {
+        "adapter": visuals_profile.adapter if visuals_profile else "none",
+        "source": "job override" if job.visuals.enabled is not None or job.visuals.profile
+                  else "active profile",
+    }
     tts_name = job.providers.tts_provider or cfg.tts.active
     tts_profile = cfg.tts.profiles.get(tts_name)
     out["voice"] = {

@@ -141,6 +141,71 @@
                   class: "shot", loading: "lazy" }));
   };
 
+  /* Every generated picture with the prompt that made it. Stills show the
+   * prepared bitmap the renderer will paste; a clip shows its first and
+   * middle frame, since the frames are what the reel uses, not the mp4. */
+  panes.visuals = function (stage) {
+    var meta = stage.meta || {};
+    if (meta.enabled === false) {
+      return el("div", { class: "callout callout--info" },
+        el("div", null,
+          el("div", { class: "callout__title" }, "Generated visuals are off for this reel"),
+          el("div", null, "Turn them on under Settings, or per reel in the job settings, " +
+             "and the stage will draw stills and a clip from the script's directions.")));
+    }
+    return RF.api.get(artifactUrl(stage.artifacts.visuals || "visuals/visuals.json"))
+      .then(function (manifest) {
+        var assets = manifest.assets || [];
+        if (!assets.length) {
+          return el("div", { class: "callout callout--info" },
+            el("div", null, "Nothing was generated: " + (meta.note || "the script had no scenes to illustrate.")));
+        }
+        return el("div", { class: "stack", "data-gap": "3" }, assets.map(function (asset) {
+          var title = asset.kind === "music"
+            ? "music bed"
+            : asset.kind + " " + asset.index + " — scene " + asset.scene_index +
+              (asset.scene_title ? ": " + asset.scene_title : "");
+          var pictures;
+          if (!asset.ok) {
+            pictures = el("div", { class: "callout callout--error" },
+              el("div", null, el("div", { class: "callout__title" }, "failed"),
+                 el("div", null, asset.error || "no detail")));
+          } else if (asset.kind === "still") {
+            pictures = el("img", { src: artifactUrl(asset.file), alt: title,
+                                   class: "shot", loading: "lazy" });
+          } else if (asset.kind === "music") {
+            pictures = el("audio", { src: artifactUrl(asset.source || asset.file),
+                                     controls: "controls", class: "shot", preload: "none" });
+          } else if (asset.source) {
+            pictures = el("video", { src: artifactUrl(asset.source), controls: "controls",
+                                     class: "shot", preload: "metadata", loop: "loop", muted: "muted",
+                                     poster: artifactUrl(asset.file + "/00001.jpg") });
+          } else {
+            var mid = Math.max(1, Math.floor((asset.frames || 1) / 2));
+            pictures = el("div", { class: "cluster", "data-gap": "2" },
+              el("img", { src: artifactUrl(asset.file + "/00001.jpg"), alt: title + " first frame",
+                          class: "shot shot--half", loading: "lazy" }),
+              el("img", { src: artifactUrl(asset.file + "/" + String(mid).padStart(5, "0") + ".jpg"),
+                          alt: title + " middle frame", class: "shot shot--half", loading: "lazy" }));
+          }
+          return el("div", { class: "card stack", "data-gap": "2" },
+            el("div", { class: "card__head" },
+              el("span", { class: "card__title grow" }, title),
+              el("span", { class: "chip " + (asset.ok ? "chip--done" : "chip--failed") },
+                 asset.ok ? (asset.kind === "clip"
+                              ? asset.frames + " frames @ " + asset.fps + " fps"
+                              : asset.kind === "music"
+                                ? asset.seconds + " s"
+                                : asset.width + "×" + asset.height)
+                          : "failed")),
+            pictures,
+            el("div", { class: "field__hint mono" }, "seed " + asset.seed),
+            el("div", { class: "field__hint" }, asset.prompt));
+        }));
+      })
+      .catch(function () { return metaCard(stage); });
+  };
+
   panes.render = function (stage) {
     return el("div", { class: "card" },
       el("video", { src: artifactUrl(stage.artifacts.video), controls: "controls",
@@ -172,8 +237,9 @@
     return el("div", { class: "stack", "data-gap": "3" },
       el("div", { class: "card cluster" },
         Object.keys(stage.artifacts || {}).map(function (key) {
+          var file = String(stage.artifacts[key]).split(/[\\/]/).pop();
           return el("a", { class: "btn btn--sm", href: artifactUrl(stage.artifacts[key]),
-                           download: "download" },
+                           download: file },
                     RF.icon("download", { size: 14 }), key);
         })));
   };

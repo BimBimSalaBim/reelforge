@@ -11,9 +11,9 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.api.schemas import CreateJobRequest, JobView, RunRequest
+from app.api.schemas import CreateJobRequest, JobView, RunRequest, VisualsChoiceIn
 from app.models.content import ReelContent
-from app.models.job import JobImage, STAGE_ORDER, JobSource, ProviderChoice, Stage, Status
+from app.models.job import JobImage, STAGE_ORDER, JobSource, ProviderChoice, Stage, Status, JobVisuals
 from app.runner import submit_pipeline, submit_stage
 from app.store import JobStore, atomic_write
 
@@ -85,6 +85,7 @@ def create_job(request: CreateJobRequest) -> JobView:
             tts_provider=request.tts_provider, tts_voice=request.tts_voice,
         ),
         manual_stages=request.manual_stages,
+        visuals=(JobVisuals(**request.visuals.model_dump()) if request.visuals else None),
     )
     if request.autostart:
         submit_pipeline(job.id)
@@ -106,6 +107,7 @@ class JobSettingsIn(BaseModel):
     llm_provider: str | None = None
     tts_provider: str | None = None
     tts_voice: str | None = None
+    visuals: VisualsChoiceIn | None = None
 
 
 @router.patch("/{job_id}")
@@ -166,6 +168,17 @@ def update_job(job_id: str, payload: JobSettingsIn = Body(...)) -> JobView:
         job.note(f"fact checking set to {payload.fact_check}; "
                  f"cleared {[c.value for c in cleared]}")
 
+    if payload.visuals is not None:
+        new_visuals = JobVisuals(**payload.visuals.model_dump())
+        if new_visuals != job.visuals:
+            job.visuals = new_visuals
+            changed.append("visuals")
+            # the cover backdrop and every generated still come from these
+            # choices, so both stages that draw them are built again
+            cleared = job.invalidate_from(Stage.CONTENT)
+            job.note(f"generated visuals set to {new_visuals.model_dump(exclude_none=True)}; "
+                     f"cleared {[c.value for c in cleared]}")
+
     if payload.manual_stages is not None:
         known = {s.value for s in STAGE_ORDER}
         unknown = [s for s in payload.manual_stages if s not in known]
@@ -209,7 +222,7 @@ def unarchive_job(job_id: str) -> dict:
     return {"id": job.id, "archived": False}
 
 
-@router.delete("/{job_id}", status_code=204)
+@router.delete("/{job_id}", status_code=204, response_model=None)
 def delete_job(job_id: str) -> None:
     """Remove the job and everything it produced. Not reversible.
 
@@ -280,7 +293,7 @@ def get_content(job_id: str) -> dict:
     path = store().paths(job).content_json
     if not path.exists():
         raise HTTPException(404, "content has not been generated yet")
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 @router.put("/{job_id}/content")
@@ -314,7 +327,7 @@ def get_storyboard(job_id: str) -> str:
     path = store().paths(job).storyboard_py
     if not path.exists():
         raise HTTPException(404, "no storyboard yet")
-    return path.read_text()
+    return path.read_text(encoding="utf-8")
 
 
 @router.put("/{job_id}/storyboard")
@@ -355,7 +368,7 @@ def put_phrases(job_id: str, lines: list[str] = Body(...)) -> dict:
     """Re-split the phrase list so it matches what was actually spoken."""
     job = _load(job_id)
     paths = store().paths(job)
-    content = ReelContent.model_validate_json(paths.content_json.read_text())
+    content = ReelContent.model_validate_json(paths.content_json.read_text(encoding="utf-8"))
     if len(lines) < 1:
         raise HTTPException(422, "at least one phrase is required")
 
@@ -420,7 +433,12 @@ def artifact(job_id: str, path: str):
     target = (root / path).resolve()
     if not str(target).startswith(str(root)) or not target.is_file():
         raise HTTPException(404, "no such artifact")
-    return FileResponse(target)
+    # filename= sets Content-Disposition, so "save as" offers the artifact's
+    # own name (requests-bundle.zip) rather than whatever the browser guesses.
+    # Archives download outright; everything else renders inline as before.
+    disposition = "attachment" if target.suffix.lower() in (".zip", ".gz", ".tar") else "inline"
+    return FileResponse(target, filename=target.name,
+                        content_disposition_type=disposition)
 
 
 # ---------------------------------------------------------------- images --

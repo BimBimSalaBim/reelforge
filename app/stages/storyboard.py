@@ -147,6 +147,7 @@ def generate_storyboard(
     vision_llm: LLMProvider | None = None,
     captions: bool = True,
     images: list[dict] | None = None,
+    clips: list[dict] | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> StoryboardResult:
     cfg = get_config()
@@ -168,7 +169,7 @@ def generate_storyboard(
             content, timing_json, total=total, audio_rel=audio_rel,
             phrases_rel=phrases_rel, template_example=template_example,
             repair_notes=notes, max_example_lines=example_lines,
-            captions=captions,
+            captions=captions, assets=storyboard_assets(images, clips),
         )
         try:
             result = llm.complete(system=system, user=user, max_tokens=12000,
@@ -207,7 +208,7 @@ def generate_storyboard(
             continue
 
         # --- rungs 5-7: render sample frames ------------------------------
-        target.write_text(source)
+        target.write_text(source, encoding="utf-8")
         if progress:
             progress(f"attempt {index} passed static checks, rendering sample frames")
         smoke = run_smoke(workspace, content.slug, smoke_dir, expected_duration=total)
@@ -246,7 +247,7 @@ def generate_storyboard(
         progress("generation exhausted its attempts; using the data-driven fallback")
     source = write_fallback(content, workspace, total, audio_rel, phrases_rel,
                             captions=captions, timing_json=timing_json,
-                            images=images)
+                            images=images, clips=clips)
     smoke = run_smoke(workspace, content.slug, smoke_dir, expected_duration=total)
     if not smoke.get("ok"):
         raise StageError(
@@ -257,6 +258,24 @@ def generate_storyboard(
                      "problems": []})
     return StoryboardResult(source=source, path=workspace / "storyboards" / f"{content.slug}.py",
                             attempts=attempts, smoke=smoke, used_fallback=True)
+
+
+def storyboard_assets(images: list[dict] | None, clips: list[dict] | None) -> dict | None:
+    """Generated pictures a model-written storyboard may draw, as the prompt
+    describes them. Uploaded screenshots are included too: they sit in the
+    same directory and the drawing code is identical."""
+    stills = [{"file": i["file"], "width": i.get("width", 0), "height": i.get("height", 0),
+               "scene_index": i.get("scene_index"),
+               "about": i.get("heading") or i.get("caption") or i.get("eyebrow", ""),
+               "fit": i.get("fit", "panel")}
+              for i in (images or []) if i.get("file")]
+    motion = [{"dir": c["dir"], "fps": c.get("fps", 30), "frames": c.get("frames", 0),
+               "seconds": c.get("seconds", 0), "scene_index": c.get("scene_index"),
+               "about": c.get("label", "")}
+              for c in (clips or []) if c.get("dir")]
+    if not stills and not motion:
+        return None
+    return {"stills": stills, "clips": motion}
 
 
 def capture_repo_scroll(repo_url: str, workspace: Path) -> dict | None:
@@ -295,6 +314,7 @@ def write_fallback(
     audio_rel: str, phrases_rel: str, captions: bool = True,
     timing_json: Path | None = None, images: list[dict] | None = None,
     family: str = "bloom", repo_url: str | None = None,
+    clips: list[dict] | None = None,
 ) -> str:
     """Render the same content from data, with no generated code involved.
 
@@ -305,13 +325,13 @@ def write_fallback(
 
     segments = None
     if timing_json and timing_json.exists():
-        segments = [tuple(seg) for seg in json.loads(timing_json.read_text())["segments"]]
+        segments = [tuple(seg) for seg in json.loads(timing_json.read_text(encoding="utf-8"))["segments"]]
 
     scroll = capture_repo_scroll(repo_url or content.repo_url, workspace)
     source = build_source(content, total=total, audio_rel=audio_rel,
                           phrases_rel=phrases_rel, captions=captions,
                           segments=segments, images=images, family=family,
-                          scroll=scroll)
+                          scroll=scroll, clips=clips)
     target = workspace / "storyboards" / f"{content.slug}.py"
-    target.write_text(source)
+    target.write_text(source, encoding="utf-8")
     return source

@@ -266,6 +266,39 @@ first pass faded to zero by y 250 and restarted at y 1600, which left the rail
 at y 128 half-covered and the footer at y 1524 not covered at all — legible in
 a still, illegible in the render.
 
+## Generated clips and stills
+
+`app/stages/visuals.py` asks a ComfyUI server (`app/providers/visuals/`) for
+pictures and delivers them the only way this renderer can use them: a still is
+a prepared PNG beside the uploaded screenshots, a clip is a directory of JPEG
+frames at 1080x1920 / 30 fps under `<job>/video/images/clip-<n>/`. The emitted
+storyboards gain a `clip` slot (`sl_clip` in all three families) that pastes
+frame `int((t - t0) * fps)` through a twelve-frame LRU and ping-pongs past the
+end, and the catalogues gain a `motion` layout weighted between the repo scroll
+and the screenshot.
+
+Two things the smoke check taught while building it. A full-bleed picture
+trips the **safe-area** rung at the sides unless its alpha fades over the
+margins (`_side_mask` in Slab, `_edge_fade` in Bloom) -- the check measures
+bright pixels under the platform's UI columns, and a photo has them. And a
+dark clip under the scrims trips the **sparse** rung, so every clip screen
+also carries its scene title as text. The Slab family already trips safe-area
+with the test fixture's light palette, clip or no clip; that is a pre-existing
+condition the visuals tests compare against rather than hide.
+
+Audio goes in through `shim_sfx.py` the same way, from `app/render/soundbed.py`:
+`sfx.make_gens` is replaced on the loaded module so generated one-shots stand
+in for the synthesized kinds (same `amp`, same `dur`), and the music bed is
+mixed under the narration *after* `sfx.build()` has written the mix -- the
+narration buffer is never touched. One pre-existing bug surfaced the first
+time a bed went through: `chunked.py`'s loudness message called `progress`
+with one argument, and only a multi-pass loudnorm ever reached it.
+
+The cover backdrop goes in through `shim_cover.py` the same way the spec does:
+`covers.ground` and the motif are module attributes, so the shim replaces them
+with `app/render/backdrop.py`'s darkened picture and `covers.py` never learns
+about it.
+
 ## Layout
 
 ```

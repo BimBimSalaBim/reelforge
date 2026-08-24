@@ -483,6 +483,7 @@ dialog::backdrop { background:rgb(4 5 8 / .68); backdrop-filter:blur(3px) }
 .rail__dot[data-status="skipped"] { background:var(--st-skipped-fg) }
 
 .shot { width:100%; border-radius:var(--r-md); background:var(--surface-inset) }
+.shot--half { width:calc(50% - var(--s-2, 8px)); max-width:320px }
 
 /* ------------------------------------------------------------- REEL FRAME */
 /* The stage is literally 1080x1920 CSS px and is scaled by a transform, so

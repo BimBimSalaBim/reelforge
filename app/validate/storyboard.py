@@ -183,7 +183,7 @@ def collect_cue_words(tree: ast.AST) -> list[tuple[str, int]]:
 
 
 def spoken_words(timing_json: Path) -> set[str]:
-    data = json.loads(timing_json.read_text())
+    data = json.loads(timing_json.read_text(encoding="utf-8"))
     return {_normalise(w["w"]) for w in data.get("words", [])}
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Iterator
 
 from app.config import get_config
-from app.models.job import Job, JobSource, ProviderChoice
+from app.models.job import Job, JobSource, ProviderChoice, JobVisuals
 
 SLUG_RE = re.compile(r"[^a-z0-9-]+")
 
@@ -32,7 +32,9 @@ def atomic_write(path: Path, data: str | bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.tmp{os.getpid()}")
     mode = "wb" if isinstance(data, bytes) else "w"
-    with open(tmp, mode) as fh:
+    # text is always UTF-8: the platform default is cp1252 on Windows, and a
+    # README with one character outside it would fail the write
+    with open(tmp, mode, encoding=None if mode == "wb" else "utf-8") as fh:
         fh.write(data)
         fh.flush()
         os.fsync(fh.fileno())
@@ -86,6 +88,13 @@ class JobPaths:
     def images(self) -> Path: return self.uploads / "images"
     @property
     def prepared_images(self) -> Path: return self.root / "images"
+    #: generated imagery: raw stills, clips and their frames, the cover backdrop
+    @property
+    def visuals_dir(self) -> Path: return self.root / "visuals"
+    @property
+    def visuals_json(self) -> Path: return self.visuals_dir / "visuals.json"
+    @property
+    def cover_backdrop(self) -> Path: return self.visuals_dir / "cover-backdrop.png"
 
     # -- render
     @property
@@ -145,6 +154,7 @@ class JobStore:
         fact_check: str | None = None,
         providers: ProviderChoice | None = None,
         manual_stages: list | None = None,
+        visuals: "JobVisuals | None" = None,
     ) -> Job:
         slug = slugify(slug)
         job_id = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{slug[:20]}-{uuid.uuid4().hex[:6]}"
@@ -157,6 +167,7 @@ class JobStore:
                       else get_config().content.burn_captions),
             fact_check=fact_check or get_config().content.fact_check,
             providers=providers or ProviderChoice(),
+            visuals=visuals or JobVisuals(),
             manual_stages=(manual_stages if manual_stages is not None
                            else get_config().approval.manual_stages),
         )
@@ -171,7 +182,7 @@ class JobStore:
         path = self.dir_for(job_id) / "job.json"
         if not path.exists():
             raise FileNotFoundError(f"no such job: {job_id}")
-        return Job.model_validate_json(path.read_text())
+        return Job.model_validate_json(path.read_text(encoding="utf-8"))
 
     def save(self, job: Job) -> Job:
         atomic_write(self.dir_for(job.id) / "job.json", job.model_dump_json(indent=2))
@@ -246,4 +257,4 @@ class JobStore:
         atomic_write(path, json.dumps(payload, indent=2, default=str))
 
     def read_json(self, path: Path) -> dict | list:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))

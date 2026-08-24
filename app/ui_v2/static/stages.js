@@ -10,7 +10,7 @@
   "use strict";
 
   var LABELS = {
-    ingest: "Ingest", content: "Content", cover: "Cover", audio: "Audio",
+    ingest: "Ingest", content: "Content", cover: "Cover", visuals: "Visuals", audio: "Audio",
     align: "Align", storyboard: "Storyboard", render: "Render",
     verify: "Verify", package: "Package",
   };
@@ -19,6 +19,7 @@
     ingest: "Fetch the facts from GitHub or Hugging Face",
     content: "Write the script, fact sheet, cover spec and platform copy",
     cover: "Render the cover image",
+    visuals: "Generate stills, clips and a cover backdrop with ComfyUI, when switched on",
     audio: "Synthesize or accept the narration",
     align: "Align the narration to the phrase list",
     storyboard: "Write the storyboard and prove it renders",

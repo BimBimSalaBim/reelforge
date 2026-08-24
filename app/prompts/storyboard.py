@@ -101,8 +101,9 @@ def build_storyboard_prompt(
     repair_notes: str = "",
     max_example_lines: int = 300,
     captions: bool = True,
+    assets: dict | None = None,
 ) -> tuple[str, str]:
-    timing = json.loads(timing_json.read_text())
+    timing = json.loads(timing_json.read_text(encoding="utf-8"))
     phrases = timing["phrases"]
     segments = timing["segments"]
 
@@ -178,7 +179,7 @@ FACTS AVAILABLE FOR ON-SCREEN TEXT
 {"=" * 68}
 {facts}
 
-{"=" * 68}
+{assets_section(assets)}{"=" * 68}
 THE API YOU ARE WRITING AGAINST
 {"=" * 68}
 {api_reference()}
@@ -198,6 +199,53 @@ Return the complete corrected module, not a patch.
 """
     system = SYSTEM.replace("{captions_rule}", CAPTIONS_ON if captions else CAPTIONS_OFF)
     return system, user
+
+
+def assets_section(assets: dict | None) -> str:
+    """Pictures the pipeline prepared, and the one way to draw them.
+
+    Kept short: the model should treat a still or a clip as one more thing a
+    scene can show, not rewrite the reel around it. Paths are relative to the
+    storyboard's own file, which is why `__file__` appears -- a chunk process
+    runs with a different cwd.
+    """
+    if not assets:
+        return ""
+    lines = []
+    for still in assets.get("stills") or []:
+        where = f"scene {still['scene_index']}" if still.get("scene_index") else "any scene"
+        lines.append(f"  still  ../images/{still['file']}  {still['width']}x{still['height']}  "
+                     f"for {where}, heading: \"{(still.get('about') or '')[:60]}\"")
+    for clip in assets.get("clips") or []:
+        where = f"scene {clip['scene_index']}" if clip.get("scene_index") else "any scene"
+        lines.append(f"  clip   ../images/{clip['dir']}/00001.jpg .. "
+                     f"{clip['frames']:05d}.jpg  1080x1920 @ {clip['fps']} fps  "
+                     f"({clip['seconds']} s) for {where}, heading: \"{(clip.get('about') or '')[:60]}\"")
+    if not lines:
+        return ""
+    return f"""{"=" * 68}
+PICTURES ALREADY PREPARED -- use them in the scenes they belong to
+  They contain NO text by design: draw the heading given for each over the
+  picture yourself. Composite the picture inside the scene function that
+  owns it, BEFORE the scene's text so the text stays on top.
+  A full-bleed picture needs `S.scrim(ov, 0.18)` over it so text reads.
+  Clip frames are 1-based; pick the frame from elapsed scene time and clamp.
+{"=" * 68}
+{chr(10).join(lines)}
+
+  _HERE = os.path.dirname(os.path.abspath(__file__))
+  _PIX = {{}}
+  def pic(name):
+      if name not in _PIX:
+          _PIX[name] = Image.open(os.path.join(_HERE, "..", "images", name)).convert("RGBA")
+      return _PIX[name]
+  def clip_frame(dirname, t, t0, fps, n):
+      i = max(1, min(n, int((t - t0) * fps) + 1))
+      return pic(os.path.join(dirname, "%05d.jpg" % i))
+  # in a scene:  ov.alpha_composite(pic("gen-still-1.png"), (0, 0)); S.scrim(ov, 0.18)
+  # a panel:     ov.alpha_composite(pic("gen-still-1.png").resize((912, 684)), (84, 560))
+
+"""
 
 
 #: Burned-in captions carry a muted autoplay, which is how most reels are first

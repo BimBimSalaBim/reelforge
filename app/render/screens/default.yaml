@@ -35,14 +35,25 @@
   weight: 99
   needs: [scroll]
   slots:
-    # pan rate in frame-pixels/second; 400 reads as a page going by,
+    # pan rate in frame-pixels/second; 300 reads as a page going by,
     # 1600 (which is what fitting a whole README into one scene gives) is a blur
-    - {kind: scroll, source: scroll, speed: 400}
+    - {kind: scroll, source: scroll, speed: 300}
 
 # A screenshot is the only screen showing something the pipeline did not draw
 # itself, so it is worth a lot when one exists -- and `needs` means it simply
 # does not exist when none does. Repeats with a variant, so three uploads give
 # three screens rather than the same one three times.
+# A generated clip: motion the pipeline did not draw. Above the screenshot
+# because a moving picture holds a scene on its own; below the repo scroll so
+# the repo still shows first. Repeats per clip like screenshots do.
+- id: motion
+  eyebrow: "@clip_eyebrow"
+  weight: 97
+  needs: [clips>=1]
+  repeat_with: clips
+  slots:
+    - {kind: clip, source: clips}
+
 - id: screenshot
   eyebrow: "@image_eyebrow"
   weight: 95

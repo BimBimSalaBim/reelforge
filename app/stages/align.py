@@ -101,7 +101,7 @@ def split_phrases_to_match(lines: list[str], target: int) -> list[str] | None:
 
 def align_job(job: Job, store: JobStore, progress: Progress | None = None) -> dict:
     paths = store.paths(job)
-    content = ReelContent.model_validate_json(paths.content_json.read_text())
+    content = ReelContent.model_validate_json(paths.content_json.read_text(encoding="utf-8"))
     phrase_count = len(content.phrases)
     pronunciations = json.dumps(content.audio.pronunciations)
 
@@ -169,8 +169,8 @@ def align_job(job: Job, store: JobStore, progress: Progress | None = None) -> di
                         pause_after_ms=300)
                     for i, text in enumerate(split)
                 ]})
-                paths.content_json.write_text(updated.model_dump_json(indent=2))
-                paths.phrases_txt.write_text(documents.phrases_txt(updated))
+                paths.content_json.write_text(updated.model_dump_json(indent=2), encoding="utf-8")
+                paths.phrases_txt.write_text(documents.phrases_txt(updated), encoding="utf-8")
                 content, phrase_count = updated, len(split)
                 sweep = {"matched": True, "drop": drop, "min_sil": min_sil}
 
@@ -229,7 +229,7 @@ def reconcile_preview(job: Job, store: JobStore, *, drop: float = 32.0,
                       min_sil: int = 220) -> dict:
     """Detected segments beside the phrase lines, for the UI's split/merge view."""
     paths = store.paths(job)
-    content = ReelContent.model_validate_json(paths.content_json.read_text())
+    content = ReelContent.model_validate_json(paths.content_json.read_text(encoding="utf-8"))
     probe = _run(["--workspace", str(paths.workspace), "--audio", str(paths.audio_mp3),
                   "probe", "--drop", str(drop), "--min-sil", str(min_sil)])
     phrases = content.phrase_lines()

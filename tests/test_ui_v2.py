@@ -140,7 +140,7 @@ def test_every_stage_has_a_pane():
     and `align` meant the v2 UI could not take a reel end to end on its own --
     you had to go back to the classic UI for exactly two steps."""
     source = (UI_V2 / "static" / "job.js").read_text()
-    for stage in ("content", "cover", "audio", "align", "storyboard",
+    for stage in ("content", "cover", "visuals", "audio", "align", "storyboard",
                   "render", "verify", "package"):
         assert f"panes.{stage} = " in source, f"no pane for {stage}"
 

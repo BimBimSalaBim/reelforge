@@ -21,6 +21,8 @@ def main() -> int:
     ap.add_argument("--key", required=True)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--allow-system-fonts", action="store_true")
+    ap.add_argument("--backdrop", type=Path, default=None,
+                    help="a generated 1080x1920 image to paint under the typography")
     args = ap.parse_args()
 
     workspace = args.workspace.resolve()
@@ -40,7 +42,7 @@ def main() -> int:
     sys.modules[spec.name] = covers
     spec.loader.exec_module(covers)
 
-    payload = json.loads(args.spec.read_text())
+    payload = json.loads(args.spec.read_text(encoding="utf-8"))
     payload["file"] = args.out.name
     payload["mark_font"] = tuple(payload["mark_font"])
     payload["stats"] = [tuple(s) for s in payload["stats"]]
@@ -56,6 +58,17 @@ def main() -> int:
     covers.SPECS[args.key] = payload
     args.out.parent.mkdir(parents=True, exist_ok=True)
     covers.OUT = str(args.out.parent)   # covers.py writes into OUT
+
+    if args.backdrop:
+        # Same injection idea as SPECS: covers.render() calls ground() for
+        # its base and MOTIFS[...] for the top band, both module attributes,
+        # so a generated picture replaces the procedural ground here without
+        # covers.py learning anything about it.
+        from app.render.backdrop import prepare_backdrop
+
+        base = prepare_backdrop(args.backdrop, payload)
+        covers.ground = lambda _s: base.copy()
+        covers.MOTIFS[payload["motif"]] = lambda *_a, **_k: None
 
     produced = covers.render(args.key)
     print(json.dumps({"ok": True, "path": str(produced or args.out),

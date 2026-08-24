@@ -34,8 +34,17 @@
   weight: 99
   needs: [scroll]
   slots:
-    # pan rate in frame-pixels/second, matching slab.SCROLL_SPEED
-    - {kind: scroll, source: scroll, speed: 400}
+    # pan rate in frame-pixels/second; 300 is calmer than slab.SCROLL_SPEED's 400
+    - {kind: scroll, source: scroll, speed: 300}
+
+# A generated clip inside the stage band, hung off the spine.
+- id: ledger-motion
+  eyebrow: "@clip_eyebrow"
+  weight: 97
+  needs: [clips>=1]
+  repeat_with: clips
+  slots:
+    - {kind: clip, source: clips}
 
 - id: ledger-screenshot
   eyebrow: "@image_eyebrow"

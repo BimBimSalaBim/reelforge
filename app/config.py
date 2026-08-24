@@ -176,7 +176,7 @@ class TTSProfile(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    adapter: Literal["upload", "elevenlabs", "openai", "local", "say", "fake"] = "upload"
+    adapter: Literal["upload", "elevenlabs", "openai", "local", "say", "fish", "fake"] = "upload"
     label: str = ""
 
     def settings(self) -> dict[str, Any]:
@@ -190,7 +190,7 @@ class TTSProfile(BaseModel):
 
 
 #: What each adapter calls its voice field, so a caller can just say "voice".
-VOICE_FIELD = {"elevenlabs": "voice_id"}
+VOICE_FIELD = {"elevenlabs": "voice_id", "fish": "reference_id"}
 
 #: Defaults for a freshly added profile of each adapter, so the UI can offer
 #: something that works rather than an empty form.
@@ -212,7 +212,66 @@ TTS_DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "local": {"base_url": "http://tts:8080", "voice": "af_heart", "engine": "kokoro"},
     "say": {"voice": "Daniel", "rate": 165},
+    "fish": {"base_url": "http://localhost:7860", "api_name": "/partial",
+             "reference_id": "", "reference_audio": "", "reference_text": "",
+             "seed": 1, "temperature": 0.8, "top_p": 0.8, "repetition_penalty": 1.1,
+             "chunk_length": 300},
 }
+
+class VisualsProfile(BaseModel):
+    """One image/video generation backend. Same idea as TTSProfile.
+
+    `none` is the always-present null adapter: the reel is drawn entirely by
+    the renderer, which is how every reel was made before this existed.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    adapter: Literal["none", "comfyui", "fake"] = "none"
+    label: str = ""
+
+    def settings(self) -> dict[str, Any]:
+        out = self.model_dump(exclude_none=True)
+        out.pop("adapter", None)
+        out.pop("label", None)
+        return out
+
+    def display(self) -> str:
+        return self.label or self.adapter
+
+
+#: Where the two shipped ComfyUI workflows live. They are API-format exports
+#: (what "Save (API format)" writes), which is what POST /prompt takes.
+WORKFLOW_DIR = "app/workflows"
+
+VISUALS_DEFAULTS: dict[str, dict[str, Any]] = {
+    "none": {},
+    "comfyui": {
+        "base_url": "http://localhost:8188",
+        "image_workflow": f"{WORKFLOW_DIR}/image_qwen_image_2512.json",
+        "video_workflow": f"{WORKFLOW_DIR}/video_ltx2_5_t2v.json",
+        # Which node carries what. Ids are those of the shipped workflows; an
+        # empty map makes the adapter detect them by class_type instead, which
+        # works for most simple graphs but not for one with a prompt switch.
+        "image_nodes": {"prompt": "238:227", "negative": "238:228",
+                        "size": "238:232", "seed": "238:230",
+                        "lightning": "238:229", "save": "60"},
+        "video_nodes": {"prompt": "405:376", "negative": "405:373",
+                        "seconds": "405:362", "fps": "405:361",
+                        "enhancer": "405:383", "resolution": "409", "save": "75"},
+        "audio_workflow": f"{WORKFLOW_DIR}/audio_stable_audio_3_medium_base.json",
+        "audio_nodes": {"prompt": "52:31", "negative": "52:7", "seconds": "52:36",
+                        "seed": "52:3", "category": "52:43", "enhancer": "52:35", "save": "19"},
+        "lightning": True,
+        "prompt_enhancer": True,
+        "audio_enhancer": True,
+        "image_width": 1152, "image_height": 1536,
+        "request_timeout": 1800,
+        "api_key_env": "",
+    },
+    "fake": {},
+}
+
 
 #: Endpoints the OpenAI-compatible adapter reaches, so the UI can offer them by
 #: name. They differ only in a base_url and a key, which is the whole reason one
@@ -264,7 +323,7 @@ OPENAI_COMPATIBLE_ENDPOINTS: dict[str, dict[str, Any]] = {
 }
 
 #: Hosts that mean "this model runs on your own hardware".
-LOCAL_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "::1", "host.docker.internal",
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "::1", "host.docker.internal", "comfyui",
                "ollama", "vllm", "tts")
 
 
@@ -377,7 +436,56 @@ PROFILE_FIELDS: dict[str, list[dict[str, Any]]] = {
         {"key": "voice", "label": "Voice", "type": "text"},
         {"key": "rate", "label": "Words per minute", "type": "number"},
     ],
+    "fish": [
+        {"key": "base_url", "label": "Gradio app URL", "type": "text",
+         "help": "The Fish-Speech / OpenAudio web app, e.g. http://gpu-box:7860."},
+        {"key": "reference_audio", "label": "Sample voice", "type": "audio",
+         "help": "A 10-30 s recording of the voice to clone, sent with every phrase as "
+                 "the reference. Upload one here (wav, mp3, m4a, flac), or leave it "
+                 "empty and the adapter fixes a voice itself: one seeded calibration "
+                 "line, generated once and reused for every phrase of every reel."},
+        {"key": "reference_text", "label": "Reference transcript", "type": "text",
+         "help": "What the reference recording says. Improves cloning accuracy."},
+        {"key": "reference_id", "label": "Server voice id", "type": "text",
+         "help": "A voice the server already holds under references/<id>. Leave "
+                 "empty unless you set one up there."},
+        {"key": "seed", "label": "Seed", "type": "number",
+         "help": "Changing it changes the self-referenced voice."},
+        {"key": "temperature", "label": "Temperature", "type": "number", "step": 0.1},
+        {"key": "top_p", "label": "Top-P", "type": "number", "step": 0.05},
+        {"key": "repetition_penalty", "label": "Repetition penalty", "type": "number", "step": 0.05},
+    ],
     "upload": [],
+    "none": [],
+    "comfyui": [
+        {"key": "base_url", "label": "Base URL", "type": "text",
+         "help": "The ComfyUI server, e.g. http://gpu-box:8188. Generation is "
+                 "slow: a 5 s LTX clip is minutes, so this is a poor fit for a "
+                 "hosted tunnel that drops idle connections."},
+        {"key": "api_key_env", "label": "API key variable", "type": "keyname",
+         "help": "Only for a ComfyUI behind an auth proxy. Sent as a Bearer token."},
+        {"key": "image_workflow", "label": "Image workflow (API JSON)", "type": "text"},
+        {"key": "video_workflow", "label": "Video workflow (API JSON)", "type": "text",
+         "help": "Leave empty to generate stills only."},
+        {"key": "audio_workflow", "label": "Audio workflow (API JSON)", "type": "text",
+         "help": "A text-to-audio graph (Stable Audio) for the music bed and the "
+                 "cut sounds. Not speech: narration stays with the voice profiles. "
+                 "Leave empty for no generated audio."},
+        {"key": "audio_enhancer", "label": "Stable Audio reprompt", "type": "bool",
+         "help": "Lets the workflow's LLM node expand the description into a full "
+                 "music prompt before encoding it."},
+        {"key": "lightning", "label": "Qwen Lightning (4 steps)", "type": "bool",
+         "help": "Flips the workflow's Lightning switch: four steps instead of "
+                 "fifty. Much faster, slightly softer."},
+        {"key": "prompt_enhancer", "label": "LTX prompt enhancer", "type": "bool",
+         "help": "Lets the workflow's Gemma node expand the shot description "
+                 "before encoding it."},
+        {"key": "image_width", "label": "Still width", "type": "number"},
+        {"key": "image_height", "label": "Still height", "type": "number",
+         "help": "3:4 portrait by default: it fills the panel band and crops "
+                 "cleanly to the full frame."},
+        {"key": "request_timeout", "label": "Generation timeout (s)", "type": "number"},
+    ],
 }
 
 
@@ -410,7 +518,7 @@ class TTSCfg(BaseModel):
             return data
         data = dict(data)
         profiles: dict[str, Any] = {}
-        for adapter in ("elevenlabs", "openai", "local", "say"):
+        for adapter in ("elevenlabs", "openai", "local", "say", "fish"):
             block = data.pop(adapter, None)
             if isinstance(block, dict):
                 profiles[adapter] = {**block, "adapter": adapter}
@@ -431,6 +539,64 @@ class TTSCfg(BaseModel):
     def for_profile(self, name: str | None = None) -> tuple[str, dict[str, Any]]:
         chosen = name or self.active
         profile = self.profiles.get(chosen) or self.profiles["upload"]
+        return profile.adapter, profile.settings()
+
+
+class VisualsCfg(BaseModel):
+    """Generated imagery: stills for scenes, a clip or two, a cover backdrop.
+
+    Off unless a profile other than `none` is active. Every count here is a
+    ceiling -- a reel with two body scenes never asks for four stills.
+    """
+
+    active: str = "none"
+    profiles: dict[str, VisualsProfile] = Field(default_factory=dict)
+    #: generated stills per reel. Stills are the overflow, not the point:
+    #: clips are assigned to the body scenes first and stills only take the
+    #: scenes left over, so with clips at 3 a four-scene script has none.
+    stills: int = Field(default=1, ge=0, le=6)
+    #: generated video clips per reel -- the primary visuals. A body scene
+    #: gets a moving picture, roughly 100 s of generation each on one GPU.
+    clips: int = Field(default=3, ge=0, le=3)
+    clip_seconds: float = Field(default=5.0, ge=2.0, le=10.0)
+    #: paint the cover over a generated backdrop instead of the procedural ground
+    cover: bool = True
+    #: a generated instrumental bed under the narration. Off by default: the
+    #: retention rules in DEVELOPMENT.md say voice only, and a bed anyone
+    #: notices is too loud -- so this is a choice, made per reel or here.
+    music: bool = False
+    music_gain_db: float = Field(default=-22.0, ge=-40.0, le=-6.0)
+    music_duck_db: float = Field(default=-9.0, ge=-24.0, le=0.0)
+    #: generated one-shots for the storyboards' cut sounds, in place of the
+    #: synthesized set. Made once into data/sfx/<profile>/ and reused.
+    sfx_samples: bool = False
+    #: how a still is placed: `full` bleeds to the frame edge under a scrim,
+    #: `panel` sits in a card inside the panel band
+    still_fit: Literal["full", "panel"] = "full"
+    #: ask the language model to rewrite each scene's direction as a text-free
+    #: shot plus a heading, instead of cleaning the direction by rule
+    art_director: bool = True
+    #: appended to every prompt so the assets share one look. Palette words
+    #: are added per template at generation time.
+    style: str = ("cinematic, photoreal, shallow depth of field, soft volumetric "
+                  "light, a bright well-lit subject on a dark background, no text, no letters, no logos, "
+                  "no watermark")
+    negative: str = ""
+
+    @model_validator(mode="after")
+    def _always_offer_none(self) -> "VisualsCfg":
+        self.profiles.setdefault("none", VisualsProfile(adapter="none"))
+        if self.active not in self.profiles:
+            self.active = "none"
+        return self
+
+    @property
+    def enabled(self) -> bool:
+        return self.profiles[self.active].adapter != "none"
+
+    def for_profile(self, name: str | None = None) -> tuple[str, dict[str, Any]]:
+        chosen = name or self.active
+        profile = self.profiles.get(chosen) or self.profiles["none"]
         return profile.adapter, profile.settings()
 
 
@@ -510,6 +676,13 @@ class RenderCfg(BaseModel):
     fps: int = 30
     width: int = 1080
     height: int = 1920
+    #: A directory holding the ffmpeg/ffprobe to use, put at the front of PATH
+    #: for this process and every child (the renderer's own align.py and
+    #: sfx.py find ffmpeg by PATH). For a machine whose PATH carries an old
+    #: build first: the encode settings need ffmpeg 4.0 or later, and a 2013
+    #: binary rejects `-colorspace bt709` and breaks the frame pipe with a
+    #: bare EINVAL. Empty means PATH as it is.
+    ffmpeg_dir: str = ""
 
     def resolved_workers(self) -> int:
         """How many chunks to render at once.
@@ -603,6 +776,7 @@ class QueueCfg(BaseModel):
 class Config(BaseModel):
     llm: LLMCfg = Field(default_factory=LLMCfg)
     tts: TTSCfg = Field(default_factory=TTSCfg)
+    visuals: VisualsCfg = Field(default_factory=VisualsCfg)
     content: ContentCfg = Field(default_factory=ContentCfg)
     approval: ApprovalCfg = Field(default_factory=ApprovalCfg)
     ingest: IngestCfg = Field(default_factory=IngestCfg)
@@ -657,12 +831,32 @@ def load_config(path: str | Path | None = None, *, overlay: bool = True) -> Conf
     cfg_path = Path(path) if path else config_path()
     data: dict[str, Any] = {}
     if cfg_path.exists():
-        data = yaml.safe_load(cfg_path.read_text()) or {}
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     if overlay:
         from app.settings_store import merge, read_overlay
 
         data = merge(data, read_overlay())
-    return Config.model_validate(_apply_env_overrides(data))
+    cfg = Config.model_validate(_apply_env_overrides(data))
+    _apply_ffmpeg_dir(cfg.render.ffmpeg_dir)
+    return cfg
+
+
+def _apply_ffmpeg_dir(directory: str) -> None:
+    """Put `render.ffmpeg_dir` first on PATH, once. Children inherit it."""
+    if not directory:
+        return
+    resolved = str(Path(directory).expanduser().resolve())
+    if not Path(resolved).is_dir():
+        return
+    current = os.environ.get("PATH", "")
+    if current.split(os.pathsep)[:1] == [resolved]:
+        return
+    parts = [p for p in current.split(os.pathsep) if p and p != resolved]
+    os.environ["PATH"] = os.pathsep.join([resolved, *parts])
+    # shutil.which caches nothing, but a resolver that does must forget
+    from app.render import workspace as _ws
+
+    _ws.vendored_ffmpeg_usable.cache_clear()
 
 
 _cache: tuple[tuple[float, ...], Config] | None = None
@@ -720,9 +914,9 @@ def physical_cores() -> int:
         ("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "/sys/fs/cgroup/cpu/cpu.cfs_period_us"),
     ):
         try:
-            raw = Path(quota_path).read_text().split()
+            raw = Path(quota_path).read_text(encoding="utf-8").split()
             quota = raw[0]
-            period = raw[1] if period_path is None else Path(period_path).read_text().strip()
+            period = raw[1] if period_path is None else Path(period_path).read_text(encoding="utf-8").strip()
             if quota not in ("max", "-1"):
                 allowed = int(int(quota) / int(period))
                 if allowed >= 1:
@@ -739,7 +933,7 @@ def physical_cores() -> int:
         pass
 
     try:  # Linux: count distinct (physical id, core id) pairs
-        text = Path("/proc/cpuinfo").read_text()
+        text = Path("/proc/cpuinfo").read_text(encoding="utf-8")
         pairs, physical, core = set(), None, None
         for line in text.splitlines():
             if line.startswith("physical id"):

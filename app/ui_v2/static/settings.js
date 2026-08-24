@@ -12,6 +12,9 @@
   /* Each profile carries its own `fields` schema -- key, label, type, help --
    * so the form is generated from what the adapter actually accepts rather than
    * a hardcoded case per adapter. A new adapter gets an editor for free. */
+  var KIND_TITLES = { llm: "Language models", tts: "Voices", visuals: "Generated visuals" };
+  var KIND_NOUNS = { llm: "model", tts: "voice", visuals: "image generator" };
+
   function editProfile(kind, profile, adapters) {
     var isNew = !profile;
     profile = profile || { adapter: adapters[0], settings: {}, fields: [] };
@@ -57,7 +60,7 @@
     var handle = RF.dom.dialog(RF.dom.frag(
       el("div", { class: "dialog__head" },
         el("h2", { class: "card__title" },
-           isNew ? "New " + (kind === "llm" ? "model" : "voice") + " profile"
+           isNew ? "New " + (KIND_NOUNS[kind] || kind) + " profile"
                  : "Edit " + profile.name)),
       el("div", { class: "dialog__body stack", "data-gap": "4" },
         el("label", { class: "field" },
@@ -142,6 +145,50 @@
       return { node: wrap, read: function () { return input.value.trim(); } };
     }
 
+    if (field.type === "audio") {
+      // A file that lives on the server, not a string: upload it here and the
+      // profile's setting becomes the stored path. Needs a saved profile to
+      // attach to, so a brand-new one says so instead of offering a button
+      // that cannot work yet.
+      var name = profile && profile.name;
+      var current = value ? String(value).split(/[\\/]/).pop() : "";
+      var status = el("span", { class: "field__hint" },
+                      current ? "sample: " + current : "no sample -- the adapter will fix a voice itself");
+      var player = current && name
+        ? el("audio", { controls: "controls", preload: "none", class: "shot",
+                        src: "/api/settings/tts/profiles/" + encodeURIComponent(name) + "/reference" })
+        : null;
+      var picker = el("input", { type: "file", accept: ".wav,.mp3,.m4a,.flac,.ogg,.aac" });
+      var transcript = el("input", { class: "input", placeholder: "what the sample says (optional, improves cloning)" });
+      var uploadBtn = el("button", { class: "btn btn--sm", type: "button", onclick: function () {
+        if (!name) { RF.dom.toast("save the profile first, then upload a sample", { kind: "error" }); return; }
+        if (!picker.files || !picker.files[0]) { RF.dom.toast("choose an audio file first", { kind: "error" }); return; }
+        var form = new FormData();
+        form.append("file", picker.files[0]);
+        if (transcript.value.trim()) form.append("transcript", transcript.value.trim());
+        uploadBtn.dataset.busy = "1";
+        RF.api.upload("/api/settings/tts/profiles/" + encodeURIComponent(name) + "/reference", form)
+          .then(function (result) {
+            RF.dom.toast("sample voice saved: " + ((result.reference || {}).file || ""), { kind: "ok" });
+            load();
+          })
+          .catch(function (error) { RF.dom.toast(error.message, { kind: "error" }); })
+          .then(function () { delete uploadBtn.dataset.busy; });
+      } }, "Upload sample");
+      var removeBtn = current && name ? el("button", { class: "btn btn--sm btn--quiet", type: "button",
+        onclick: function () {
+          RF.api.del("/api/settings/tts/profiles/" + encodeURIComponent(name) + "/reference")
+            .then(function () { RF.dom.toast("sample removed", { kind: "ok" }); load(); })
+            .catch(function (error) { RF.dom.toast(error.message, { kind: "error" }); });
+        } }, "Remove") : null;
+      var wrap = el("span", { class: "stack", "data-gap": "2" },
+        status, player, picker, transcript,
+        el("span", { class: "cluster", "data-gap": "2" }, uploadBtn, removeBtn));
+      // the path itself is not typed here; the form contributes nothing for
+      // it, so a dialog opened before the upload cannot overwrite the upload
+      return { node: wrap, read: function () { return undefined; } };
+    }
+
     if (field.type === "number") {
       var number = el("input", { class: "input", type: "number", step: field.step || "any",
                                  value: value == null ? "" : String(value) });
@@ -181,8 +228,7 @@
     var profiles = block.profiles || [];
     return el("div", { class: "card card--flush" },
       el("div", { class: "card__head" },
-        el("span", { class: "card__title grow" },
-           kind === "llm" ? "Language models" : "Voices"),
+        el("span", { class: "card__title grow" }, KIND_TITLES[kind] || kind),
         el("span", { class: "badge" }, "active: " + (block.active || "none")),
         el("button", { class: "btn btn--sm",
           onclick: function () { editProfile(kind, null, adapters); } },
@@ -242,13 +288,22 @@
         } else if (result.authenticated === false) {
           message = "reachable, but the key was refused" +
                     (result.api_key_env ? " — check " + result.api_key_env : "");
+        } else if (result.error) {
+          // reachable, but something about the workflows is wrong -- the
+          // server answered, so say what it said rather than "unreachable"
+          message = "reachable, but: " + result.error;
         } else {
           message = "reachable" +
                     (result.available_models && result.available_models.length
-                       ? " — " + result.available_models.length + " models" : "");
+                       ? " — " + result.available_models.length + " models" : "") +
+                    (result.devices && result.devices.length
+                       ? " — " + result.devices.map(function (d) {
+                           return (d.name || "gpu") + (d.vram_gb ? " " + d.vram_gb + " GB" : "");
+                         }).join(", ") : "") +
+                    (result.note ? " — " + result.note : "");
         }
         RF.dom.toast(name + ": " + message,
-                     { kind: result.reachable && result.authenticated !== false
+                     { kind: result.reachable && result.authenticated !== false && !result.error
                              ? "ok" : "error", timeout: 10000 });
       })
       .catch(function (error) {
@@ -369,6 +424,107 @@
 
   var STAGES = ["ingest", "content", "cover", "audio", "align",
                 "storyboard", "render", "verify", "package"];
+
+  /* How much generated imagery a reel gets. A separate card from the profile
+   * list because these are not properties of a server: two stills and a clip
+   * is a decision about the reel, whichever box draws them. */
+  function visualsCard(settings) {
+    var block = settings.visuals || {};
+    var options = block.options || {};
+    var enabled = !!block.enabled;
+
+    function save(patch, message) {
+      return RF.api.put("/api/settings/visuals/options", patch)
+        .then(function () { RF.dom.toast(message || "saved", { kind: "ok" }); load(); })
+        .catch(function (error) { RF.dom.toast(error.message, { kind: "error" }); });
+    }
+
+    function number(key, label, min, max, step) {
+      var input = el("input", { class: "input", type: "number", min: String(min),
+                                max: String(max), step: String(step || 1),
+                                value: String(options[key] == null ? "" : options[key]) });
+      input.addEventListener("change", function () {
+        var patch = {};
+        patch[key] = step && step < 1 ? parseFloat(input.value) : parseInt(input.value, 10);
+        save(patch, label + " saved");
+      });
+      return el("label", { class: "field" },
+        el("span", { class: "field__label" }, label), input);
+    }
+
+    var coverBox = el("input", { type: "checkbox", checked: !!options.cover });
+    coverBox.addEventListener("change", function () {
+      save({ cover: coverBox.checked }, "cover backdrop " + (coverBox.checked ? "on" : "off"));
+    });
+    var fitSelect = el("select", { class: "select" },
+      ["full", "panel"].map(function (v) {
+        return el("option", { value: v, selected: v === options.still_fit }, v);
+      }));
+    fitSelect.addEventListener("change", function () { save({ still_fit: fitSelect.value }); });
+    var musicBox = el("input", { type: "checkbox", checked: !!options.music });
+    musicBox.addEventListener("change", function () {
+      save({ music: musicBox.checked }, "music bed " + (musicBox.checked ? "on" : "off"));
+    });
+    var sfxBox = el("input", { type: "checkbox", checked: !!options.sfx_samples });
+    sfxBox.addEventListener("change", function () {
+      save({ sfx_samples: sfxBox.checked },
+           "cut sounds " + (sfxBox.checked ? "from generated samples" : "synthesized"));
+    });
+    var styleInput = el("textarea", { class: "input", rows: "2" }, options.style || "");
+    var negativeInput = el("input", { class: "input", value: options.negative || "",
+                                      placeholder: "empty keeps the workflow's own" });
+
+    return el("div", { class: "card stack", "data-gap": "3" },
+      el("div", { class: "card__title" }, "Generated visuals: how much, and the look"),
+      el("div", { class: "field__hint" },
+         enabled
+           ? "Active profile: " + block.active + ". Each reel gets stills from its " +
+             "scenes' on-screen directions, a clip from the scene with a shot " +
+             "description, and a backdrop under the cover's typography. Counts " +
+             "are ceilings; a short script gets fewer."
+           : "Off. Add a ComfyUI profile above and press Use to turn generated " +
+             "imagery on. Until then every reel is drawn by the renderer alone, " +
+             "exactly as before."),
+      el("div", { class: "cluster", "data-gap": "3" },
+        number("stills", "Stills per reel", 0, 6),
+        number("clips", "Clips per reel", 0, 3),
+        number("clip_seconds", "Clip length (s)", 2, 10, 0.5)),
+      el("div", { class: "cluster", "data-gap": "3" },
+        el("label", { class: "field" },
+          el("span", { class: "field__label" }, "Cover backdrop"),
+          el("span", { class: "cluster", "data-gap": "2" }, coverBox,
+             el("span", { class: "field__hint" }, "paint the cover over a generated image"))),
+        el("label", { class: "field" },
+          el("span", { class: "field__label" }, "Still placement"), fitSelect,
+          el("span", { class: "field__hint" },
+             "full bleeds to the frame edge under a scrim; panel sits in a card."))),
+      el("div", { class: "cluster", "data-gap": "3" },
+        el("label", { class: "field" },
+          el("span", { class: "field__label" }, "Music bed"),
+          el("span", { class: "cluster", "data-gap": "2" }, musicBox,
+             el("span", { class: "field__hint" },
+                "an instrumental bed from the audio workflow, ducked under the voice"))),
+        number("music_gain_db", "Bed level (dB)", -40, -6),
+        number("music_duck_db", "Duck under voice (dB)", -24, 0),
+        el("label", { class: "field" },
+          el("span", { class: "field__label" }, "Cut sounds"),
+          el("span", { class: "cluster", "data-gap": "2" }, sfxBox,
+             el("span", { class: "field__hint" },
+                "generated one-shots instead of the synthesized set; made once per profile")))),
+      el("div", { class: "field__hint" },
+         "Stable Audio makes music and sound effects, not speech: narration still comes " +
+         "from a voice profile or an upload."),
+      el("label", { class: "field" },
+        el("span", { class: "field__label" }, "Style suffix, added to every prompt"), styleInput,
+        el("span", { class: "field__hint" },
+           "Palette words from the template are added automatically.")),
+      el("label", { class: "field" },
+        el("span", { class: "field__label" }, "Negative prompt override"), negativeInput),
+      el("div", { class: "cluster", "data-gap": "2" },
+        el("button", { class: "btn btn--sm", onclick: function () {
+          save({ style: styleInput.value, negative: negativeInput.value }, "style saved");
+        } }, "Save style")));
+  }
 
   function gatesCard(settings) {
     var manual = (((settings.approval || {}).manual_stages) || []).slice();
@@ -498,7 +654,9 @@
       var profiles = results[1] || {};
       var secrets = (results[2] || {}).secrets || [];
       // the profile editor reads `fields` off whichever adapter is chosen
-      window.__RF_PROFILES = (settings.llm.profiles || []).concat(settings.tts.profiles || []);
+      window.__RF_PROFILES = (settings.llm.profiles || [])
+        .concat(settings.tts.profiles || [])
+        .concat((settings.visuals || {}).profiles || []);
       var keyNames = secrets.map(function (row) { return row.name; });
       RF.dom.mount(host, [
         el("h1", { class: "section__title" }, "Settings"),
@@ -507,6 +665,8 @@
         })),
         profileList("llm", settings.llm || {}, settings.llm.adapters || []),
         profileList("tts", settings.tts || {}, settings.tts.adapters || []),
+        profileList("visuals", settings.visuals || {}, (settings.visuals || {}).adapters || []),
+        visualsCard(settings),
         rolesCard(settings),
         ttsKeyCard(settings),
         gatesCard(settings),

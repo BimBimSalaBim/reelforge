@@ -21,6 +21,7 @@ class Stage(str, Enum):
     INGEST = "ingest"
     CONTENT = "content"
     COVER = "cover"
+    VISUALS = "visuals"
     AUDIO = "audio"
     ALIGN = "align"
     STORYBOARD = "storyboard"
@@ -34,6 +35,7 @@ STAGE_ORDER: list[Stage] = [
     Stage.INGEST,
     Stage.CONTENT,
     Stage.COVER,
+    Stage.VISUALS,
     Stage.AUDIO,
     Stage.ALIGN,
     Stage.STORYBOARD,
@@ -181,6 +183,21 @@ class JobImage(BaseModel):
     caption: str = ""
 
 
+class JobVisuals(BaseModel):
+    """Per-job say over generated imagery. `None` means the configured default.
+
+    `enabled` is the master switch: off, and the visuals stage is a no-op that
+    finishes instantly, so a job created before this existed runs unchanged.
+    """
+
+    enabled: bool | None = None
+    stills: int | None = Field(default=None, ge=0, le=6)
+    clips: int | None = Field(default=None, ge=0, le=3)
+    cover: bool | None = None
+    music: bool | None = None
+    profile: str | None = None
+
+
 class Job(BaseModel):
     id: str
     slug: str
@@ -207,6 +224,8 @@ class Job(BaseModel):
     #: because a field was reshaped rather than added.
     queue: JobQueue = Field(default_factory=JobQueue)
     providers: ProviderChoice = Field(default_factory=ProviderChoice)
+    #: generated stills, clips and cover backdrop -- see app/stages/visuals.py
+    visuals: JobVisuals = Field(default_factory=JobVisuals)
     #: stages that stop for a human instead of flowing into the next one.
     #: Replaces a single on/off switch: all-manual is tedious once the pipeline
     #: is trusted, all-auto spends a render on a script nobody read.

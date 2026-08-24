@@ -239,3 +239,37 @@ def mux_normalised(ffmpeg: str, video: Path, audio: Path, out: Path, *,
         # aim as far the other way as this pass missed
         target += error
     return {"loudness": 0.0, "true_peak": 0.0, "ok": False, "passes": history}
+
+
+def retime(audio: Path, factor: float) -> float:
+    """Speed `audio` up by `factor` in place, pitch preserved. Returns the new
+    duration in seconds.
+
+    ffmpeg's atempo takes 0.5-2.0 per instance; the factors used here are
+    small, so one instance does. Re-encoded at the narration's own settings
+    (48 kHz mono mp3), which is what the joiner writes.
+    """
+    import subprocess
+    import tempfile
+
+    from app.render.workspace import ffmpeg_bin, ffprobe_bin
+
+    factor = max(0.5, min(2.0, float(factor)))
+    fd, tmp_name = tempfile.mkstemp(suffix=audio.suffix, dir=str(audio.parent))
+    import os
+
+    os.close(fd)
+    tmp = Path(tmp_name)
+    proc = subprocess.run(
+        [ffmpeg_bin(), "-y", "-v", "error", "-i", str(audio),
+         "-filter:a", f"atempo={factor:.4f}", "-ac", "1", "-ar", "48000", str(tmp)],
+        capture_output=True, text=True, check=False)
+    if proc.returncode != 0 or not tmp.exists():
+        tmp.unlink(missing_ok=True)
+        raise EncodeError(f"retime failed: {proc.stderr.strip()[-300:]}")
+    tmp.replace(audio)
+    probe = subprocess.run(
+        [ffprobe_bin(), "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=nokey=1:noprint_wrappers=1", str(audio)],
+        capture_output=True, text=True, check=False)
+    return float(probe.stdout.strip() or 0.0)

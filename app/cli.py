@@ -129,6 +129,16 @@ def cmd_doctor(args) -> int:
     checks.append(("  from", True,
                    "vendored video/bin" if vendored else
                    ("PATH" if on_path else "nowhere")))
+    if resolved:
+        from app.render.workspace import MIN_FFMPEG, ffmpeg_version
+
+        version = ffmpeg_version(resolved)
+        recent = version is not None and version >= MIN_FFMPEG
+        checks.append(("  version", recent,
+                       (f"{version[0]}.{version[1]}" if version else "unreadable")
+                       + ("" if recent else
+                          f" -- the encoder needs {MIN_FFMPEG[0]}.{MIN_FFMPEG[1]}+; install a "
+                          "current ffmpeg and point render.ffmpeg_dir at it")))
     checks.append(("video pipeline present", (cfg.paths.video / "kit.py").exists(),
                    str(cfg.paths.video)))
     checks.append(("bundled fonts", fonts_available(),
@@ -136,6 +146,18 @@ def cmd_doctor(args) -> int:
     checks.append(("job directory writable", cfg.paths.jobs.exists(),
                    str(cfg.paths.jobs)))
     checks.append((f"executor ({mode()})", True, "celery if redis is reachable"))
+    if cfg.visuals.enabled:
+        from app.providers.visuals import probe
+
+        health = probe(cfg)
+        detail = health.get("error") or (
+            f"{health.get('base_url')} "
+            + ", ".join(f"{d.get('name')} {d.get('vram_gb')} GB" for d in health.get("devices") or [])
+        )
+        checks.append((f"comfyui ({cfg.visuals.active})", bool(health.get("reachable"))
+                       and not health.get("error"), detail))
+    else:
+        checks.append(("generated visuals", True, "off (no ComfyUI profile active)"))
 
     ok = True
     for name, passed, detail in checks:
@@ -156,6 +178,38 @@ def cmd_doctor(args) -> int:
             ok = False
             print(f"  FAIL  {'mono face symbols':34} {exc}")
     return 0 if ok else 1
+
+
+def cmd_sfx_library(args) -> int:
+    """Generate (or regenerate) the one-shot cut sounds for the active profile.
+
+    The render stage makes them on demand the first time a reel asks for
+    samples; this is for doing it up front, or for redoing one kind after
+    editing its description in app/stages/visuals.py.
+    """
+    from app.providers.visuals import build_visuals
+    from app.stages import visuals as V
+    from app.stages.pipeline import sfx_library_dir
+
+    cfg = get_config()
+    if not cfg.visuals.enabled:
+        print("no ComfyUI profile is active; nothing to generate")
+        return 1
+    provider = build_visuals(cfg)
+    if not provider.supports_audio:
+        print(f"profile {cfg.visuals.active!r} has no audio workflow")
+        return 1
+    directory = sfx_library_dir(cfg.visuals.active)
+    kinds = {k: v for k, v in V.SFX_KINDS.items() if not args.kind or k in args.kind}
+    if args.force:
+        for kind in kinds:
+            (directory / f"{kind}.wav").unlink(missing_ok=True)
+    failed = V.ensure_sfx_library(provider, directory, kinds=kinds, progress=lambda m: print("  " + m))
+    present = sorted(p.stem for p in directory.glob("*.wav"))
+    print(f"{len(present)} one-shot(s) in {directory}: {', '.join(present)}")
+    for kind, err in failed.items():
+        print(f"  FAIL  {kind}: {err}")
+    return 1 if failed else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -195,6 +249,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("providers", help="what is reachable right now").set_defaults(
         func=cmd_providers)
     sub.add_parser("doctor", help="check the environment").set_defaults(func=cmd_doctor)
+    p = sub.add_parser("sfx-library", help="generate the cut-sound one-shots with the audio workflow")
+    p.add_argument("kind", nargs="*", help="only these kinds (default: every kind)")
+    p.add_argument("--force", action="store_true", help="regenerate kinds that already exist")
+    p.set_defaults(func=cmd_sfx_library)
 
     args = parser.parse_args(argv)
     return args.func(args)

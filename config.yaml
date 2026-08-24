@@ -119,6 +119,85 @@ tts:
     voice: Daniel
     rate: 165
 
+  # Fish-Speech / OpenAudio behind its Gradio app: self-hosted, free, clones a
+  # voice from a short recording. With no reference configured the adapter
+  # fixes a voice itself from one seeded calibration line and reuses it.
+  fish:
+    base_url: http://localhost:7860
+    api_name: /partial
+    reference_audio: ""            # a 10-30 s wav of the voice to clone
+    reference_text: ""             # its transcript
+    reference_id: ""               # or a voice the server holds under references/<id>
+    seed: 1
+    temperature: 0.8
+    top_p: 0.8
+    repetition_penalty: 1.1
+    chunk_length: 300
+
+# Generated imagery: stills for the scenes, a short clip, a backdrop under the
+# cover's typography. Off until a profile other than `none` is active -- then
+# the `visuals` stage runs after `cover`, and every reel gets pictures drawn by
+# the image model rather than only by the renderer.
+#
+# The backend is a ComfyUI server. Two API-format workflows ship in
+# app/workflows/ (Qwen-Image 2512 for stills, LTX 2.5 text-to-video for clips);
+# the adapter rewrites their prompt, size, seed and duration nodes and submits
+# them as they are. Export your own with Workflow > Export (API) and point a
+# profile at the file.
+visuals:
+  active: none
+  profiles:
+    none:
+      adapter: none
+    comfyui:
+      adapter: comfyui
+      base_url: http://localhost:8188       # http://comfyui:8188 inside compose
+      image_workflow: app/workflows/image_qwen_image_2512.json
+      video_workflow: app/workflows/video_ltx2_5_t2v.json   # empty = stills only
+      # Which node carries what, by id in the shipped workflows. Leave the map
+      # out for a workflow of your own and the adapter finds them by walking
+      # the graph; name them only when it guesses wrong.
+      image_nodes: {prompt: "238:227", negative: "238:228", size: "238:232",
+                    seed: "238:230", lightning: "238:229", save: "60"}
+      video_nodes: {prompt: "405:376", negative: "405:373", seconds: "405:362",
+                    fps: "405:361", enhancer: "405:383", resolution: "409", save: "75"}
+      # Text-to-audio (Stable Audio 3) for the music bed and the cut sounds.
+      # Not speech -- narration stays with the voice profiles. Empty = none.
+      audio_workflow: app/workflows/audio_stable_audio_3_medium_base.json
+      audio_nodes: {prompt: "52:31", negative: "52:7", seconds: "52:36", seed: "52:3",
+                    category: "52:43", enhancer: "52:35", save: "19"}
+      audio_enhancer: true       # let the workflow's LLM node expand the music prompt
+      lightning: true            # Qwen's 4-step LoRA: seconds per still instead of a minute
+      prompt_enhancer: true      # let the LTX workflow's Gemma node expand the shot
+      image_width: 1152          # 3:4 -- fills the panel band, crops cleanly to full frame
+      image_height: 1536
+      request_timeout: 1800      # a 5 s LTX clip is minutes on a single GPU
+      api_key_env: ""            # only for a server behind an auth proxy
+  # How much a reel gets. Ceilings: a three-scene script has one body scene.
+  # Clips are the point -- moving pictures carry a reel -- and are assigned to
+  # the body scenes first; stills only take scenes left over.
+  stills: 1
+  clips: 3
+  clip_seconds: 5.0
+  cover: true                  # paint the cover over a generated backdrop
+  still_fit: full              # full = bleeds under a scrim; panel = in a card
+  # Appended to every prompt so a reel's assets share one look. The template's
+  # palette words are added at generation time.
+  style: "cinematic, photoreal, shallow depth of field, soft volumetric light, a bright well-lit subject on a dark background, no text, no letters, no logos, no watermark"
+  negative: ""                 # empty keeps each workflow's own negative prompt
+  # A generated instrumental bed under the narration, from the template's
+  # music hint. Off by default -- DEVELOPMENT.md's rule is voice only, and a
+  # bed anyone notices is too loud. Ducked under the voice by an envelope
+  # follower; gain is relative to full scale, duck is how far it drops while
+  # the narrator speaks.
+  music: false
+  music_gain_db: -22.0
+  music_duck_db: -9.0
+  # Generated one-shots for the storyboards' cut sounds (thump, swish, tick,
+  # ... twelve kinds across the three families) in place of the synthesized
+  # set. Made once into data/sfx/<profile>/ and reused by every reel.
+  sfx_samples: false
+
 ingest:
   github_token_env: GITHUB_TOKEN
   hf_token_env: HUGGINGFACE_TOKEN

@@ -33,13 +33,14 @@ screenshots.
 **Output:** a finished `.mp4`, a cover `.png`, a caption block per platform, and
 a verification report.
 
-Nine stages, each writing a file you can open:
+Ten stages, each writing a file you can open:
 
 | Stage | What it does | Output |
 |---|---|---|
 | `ingest` | GitHub / Hugging Face API + README | `facts.json` |
 | `content` | Script, narration phrases, fact sheet, cover spec, platform copy | `content.json`, `<slug>.txt` |
 | `cover` | Cover art, rendered from the spec | `<slug>-reel.png` |
+| `visuals` | Stills and a clip from the script's directions, via ComfyUI (optional) | `visuals/visuals.json` |
 | `audio` | Synthesize per phrase, or accept an upload | `<slug>.mp3` |
 | `align` | Narration → word-level timing | `build/<slug>.timing.json` |
 | `storyboard` | Write the storyboard, then prove it renders | `storyboards/<slug>.py` |
@@ -170,6 +171,24 @@ the notes and the finished video. Job output belongs in `data/jobs/<id>/` and
 The four storyboards the templates use as worked examples are shipped in
 `app/templates/examples/`. They are read as text and pasted into the prompt,
 never imported, so they are application assets rather than reel output.
+
+---
+
+## Generated imagery (ComfyUI)
+
+Optional. Point a **visuals** profile at a ComfyUI server and every reel also
+gets pictures the image model drew: a still per body scene from its `ON SCREEN`
+direction, one short clip from the scene with a shot description, and a
+backdrop painted under the cover's typography. Two API-format workflows ship in
+`app/workflows/` -- Qwen-Image 2512 for stills, LTX 2.5 text-to-video for
+clips -- and the adapter rewrites their prompt, size, seed and duration nodes.
+Off by default; with it off the pipeline is exactly what it was.
+
+The same profile can carry a Stable Audio workflow for an optional music bed
+under the narration and generated cut sounds -- music and effects, not speech.
+For a self-hosted *voice*, a `fish` profile drives Fish-Speech's Gradio app.
+
+Details in **[docs/CONFIGURATION.md](docs/CONFIGURATION.md#generated-imagery-comfyui)**.
 
 ---
 

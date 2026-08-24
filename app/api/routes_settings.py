@@ -10,9 +10,11 @@ which stays the hand-edited baseline and is mounted read-only in the container.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app import settings_store
@@ -20,6 +22,7 @@ from app.api.auth import access_mode, require_admin
 from app.config import (
     LLM_DEFAULTS, LLM_ROLES, OPENAI_COMPATIBLE_ENDPOINTS, ROLE_PRESETS,
     TTS_DEFAULTS, get_config, is_hosted, profile_fields, reload_config,
+    VISUALS_DEFAULTS,
 )
 from app.models.job import STAGE_ORDER
 
@@ -126,6 +129,24 @@ def read_settings() -> dict:
             ],
             "adapters": sorted(TTS_DEFAULTS),
         },
+        "visuals": {
+            "active": cfg.visuals.active,
+            "enabled": cfg.visuals.enabled,
+            "profiles": [
+                _profile_view(name, profile, active=name == cfg.visuals.active, kind="visuals")
+                for name, profile in cfg.visuals.profiles.items()
+            ],
+            "adapters": sorted(a for a in VISUALS_DEFAULTS if a != "fake"),
+            "options": {
+                "stills": cfg.visuals.stills, "clips": cfg.visuals.clips,
+                "clip_seconds": cfg.visuals.clip_seconds, "cover": cfg.visuals.cover,
+                "still_fit": cfg.visuals.still_fit, "style": cfg.visuals.style,
+                "negative": cfg.visuals.negative,
+                "music": cfg.visuals.music, "music_gain_db": cfg.visuals.music_gain_db,
+                "music_duck_db": cfg.visuals.music_duck_db,
+                "sfx_samples": cfg.visuals.sfx_samples,
+            },
+        },
         "approval": {
             "manual_stages": cfg.approval.manual_stages,
             "preset": cfg.approval.preset(),
@@ -151,6 +172,22 @@ def _replace(path: tuple[str, ...], value: Any) -> dict:
     return read_settings()
 
 
+def _block(cfg, kind: str):
+    return {"llm": cfg.llm, "tts": cfg.tts, "visuals": cfg.visuals}[kind]
+
+
+def _defaults(kind: str) -> dict:
+    return {"llm": LLM_DEFAULTS, "tts": TTS_DEFAULTS, "visuals": VISUALS_DEFAULTS}[kind]
+
+
+#: The profile of each kind that can never be removed: it is what a job falls
+#: back to, so the pipeline is never left pointing at nothing.
+_KEEP = {"tts": ("upload", "a job must always be able to fall back to narration "
+                           "you supply yourself"),
+         "visuals": ("none", "a job must always be able to run with generated "
+                             "visuals switched off")}
+
+
 def _current(kind: str) -> dict:
     """The stored profile map, as plain data ready to patch.
 
@@ -159,7 +196,7 @@ def _current(kind: str) -> dict:
     complete rather than leaving a fragment that shadows half of it.
     """
     cfg = get_config()
-    block = cfg.llm if kind == "llm" else cfg.tts
+    block = _block(cfg, kind)
     return {name: {"adapter": profile.adapter, **profile.settings(),
                    **({"label": profile.label} if profile.label else {})}
             for name, profile in block.profiles.items()}
@@ -167,7 +204,7 @@ def _current(kind: str) -> dict:
 
 @router.put("/{kind}/profiles/{name}")
 def upsert_profile(
-    kind: Literal["llm", "tts"], name: str, payload: ProfileIn = Body(...)
+    kind: Literal["llm", "tts", "visuals"], name: str, payload: ProfileIn = Body(...)
 ) -> dict:
     """Create or update one profile.
 
@@ -177,7 +214,7 @@ def upsert_profile(
     """
     if not name.replace("-", "").replace("_", "").isalnum():
         raise HTTPException(422, "a profile name may contain letters, digits, - and _")
-    defaults = LLM_DEFAULTS if kind == "llm" else TTS_DEFAULTS
+    defaults = _defaults(kind)
     if payload.adapter not in defaults:
         raise HTTPException(
             422, f"unknown adapter {payload.adapter!r}; known: {sorted(defaults)}")
@@ -192,7 +229,12 @@ def upsert_profile(
         )
 
     entry = dict(defaults.get(payload.adapter, {})) if not existing else dict(existing)
-    entry.update({k: v for k, v in payload.settings.items() if v is not None})
+    # A file-backed field (the sample voice) is set by its own upload endpoint
+    # and cleared by its own delete; a blank value from a form that opened
+    # before the upload must not undo it.
+    file_keys = {f["key"] for f in profile_fields(payload.adapter, kind) if f.get("type") == "audio"}
+    entry.update({k: v for k, v in payload.settings.items()
+                  if v is not None and not (k in file_keys and v == "")})
     entry["adapter"] = payload.adapter
     if payload.label:
         entry["label"] = payload.label
@@ -214,22 +256,21 @@ def upsert_profile(
 
 
 @router.delete("/{kind}/profiles/{name}")
-def delete_profile(kind: Literal["llm", "tts"], name: str) -> dict:
+def delete_profile(kind: Literal["llm", "tts", "visuals"], name: str) -> dict:
     profiles = _current(kind)
     if name not in profiles:
         raise HTTPException(404, f"no profile named {name!r}")
     cfg = get_config()
-    active = cfg.llm.active if kind == "llm" else cfg.tts.active
+    active = _block(cfg, kind).active
     if name == active:
         raise HTTPException(
             409,
             f"{name!r} is the profile in use. Select a different one first, so the "
             "pipeline is never left pointing at nothing.",
         )
-    if kind == "tts" and name == "upload":
-        raise HTTPException(
-            409, "the upload profile cannot be removed: a job must always be able "
-                 "to fall back to narration you supply yourself.")
+    keep = _KEEP.get(kind)
+    if keep and name == keep[0]:
+        raise HTTPException(409, f"the {keep[0]} profile cannot be removed: {keep[1]}.")
     if len(profiles) <= 1:
         raise HTTPException(409, "this is the only profile; add another before "
                                  "removing it.")
@@ -247,14 +288,114 @@ def delete_profile(kind: Literal["llm", "tts"], name: str) -> dict:
 
 
 @router.post("/{kind}/active")
-def set_active(kind: Literal["llm", "tts"], name: str = Body(..., embed=True)) -> dict:
+def set_active(kind: Literal["llm", "tts", "visuals"], name: str = Body(..., embed=True)) -> dict:
     if name not in _current(kind):
         raise HTTPException(404, f"no profile named {name!r}")
     return _write({kind: {"active": name}})
 
 
+class VisualsOptionsIn(BaseModel):
+    stills: int | None = Field(default=None, ge=0, le=6)
+    clips: int | None = Field(default=None, ge=0, le=3)
+    clip_seconds: float | None = Field(default=None, ge=2.0, le=10.0)
+    cover: bool | None = None
+    still_fit: Literal["full", "panel"] | None = None
+    style: str | None = Field(default=None, max_length=400)
+    negative: str | None = Field(default=None, max_length=400)
+    music: bool | None = None
+    music_gain_db: float | None = Field(default=None, ge=-40.0, le=-6.0)
+    music_duck_db: float | None = Field(default=None, ge=-24.0, le=0.0)
+    sfx_samples: bool | None = None
+
+
+@router.put("/visuals/options")
+def set_visuals_options(payload: VisualsOptionsIn = Body(...)) -> dict:
+    """How many generated pictures a reel gets, and the look they share."""
+    patch = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not patch:
+        return read_settings()
+    return _write({"visuals": patch})
+
+
+# ---------------------------------------------------------- reference voice ---
+REFERENCE_SUFFIXES = (".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac")
+REFERENCE_MAX_BYTES = 25 * 1024 * 1024
+
+
+def _reference_dir() -> Path:
+    return get_config().paths.data / "tts" / "references"
+
+
+def _voice_profile(name: str) -> dict:
+    profiles = _current("tts")
+    profile = profiles.get(name)
+    if not profile:
+        raise HTTPException(404, f"no voice profile named {name!r}")
+    if "reference_audio" not in {f["key"] for f in profile_fields(profile["adapter"], "tts")}:
+        raise HTTPException(422, f"the {profile['adapter']!r} adapter takes no sample voice")
+    return profile
+
+
+@router.post("/tts/profiles/{name}/reference")
+async def upload_reference(name: str, file: UploadFile = File(...),
+                           transcript: str | None = Form(default=None)) -> dict:
+    """A recording of the voice to clone, kept under data/tts/references/.
+
+    Stored by profile name rather than by the upload's own name, so replacing
+    the sample replaces the file and nothing stale is left to be picked up.
+    """
+    _voice_profile(name)
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in REFERENCE_SUFFIXES:
+        raise HTTPException(400, f"expected an audio file ({', '.join(REFERENCE_SUFFIXES)})")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "the file is empty")
+    if len(data) > REFERENCE_MAX_BYTES:
+        raise HTTPException(413, "keep the sample under 25 MB -- 10 to 30 seconds is plenty")
+    directory = _reference_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    for old in directory.glob(f"{name}.*"):
+        old.unlink(missing_ok=True)
+    target = directory / f"{name}{suffix}"
+    target.write_bytes(data)
+
+    profiles = _current("tts")
+    entry = profiles[name]
+    entry["reference_audio"] = str(target)
+    if transcript is not None:
+        entry["reference_text"] = transcript.strip()
+    profiles[name] = entry
+    result = _replace(("tts", "profiles"), profiles)
+    result["reference"] = {"file": target.name, "bytes": len(data)}
+    return result
+
+
+@router.get("/tts/profiles/{name}/reference")
+def play_reference(name: str):
+    profile = _voice_profile(name)
+    path = Path(str(profile.get("reference_audio") or "")).expanduser()
+    if not path.is_file():
+        raise HTTPException(404, "no sample voice on this profile")
+    return FileResponse(str(path), filename=path.name)
+
+
+@router.delete("/tts/profiles/{name}/reference")
+def remove_reference(name: str) -> dict:
+    profile = _voice_profile(name)
+    path = Path(str(profile.get("reference_audio") or "")).expanduser()
+    directory = _reference_dir()
+    # only delete what this endpoint put there; a path the user typed is theirs
+    if path.is_file() and path.parent.resolve() == directory.resolve():
+        path.unlink(missing_ok=True)
+    profiles = _current("tts")
+    profiles[name]["reference_audio"] = ""
+    profiles[name]["reference_text"] = ""
+    return _replace(("tts", "profiles"), profiles)
+
+
 @router.post("/{kind}/profiles/{name}/test")
-def test_profile(kind: Literal["llm", "tts"], name: str) -> dict:
+def test_profile(kind: Literal["llm", "tts", "visuals"], name: str) -> dict:
     """Can this profile actually be reached? Costs nothing on any provider."""
     cfg = get_config()
     try:
@@ -262,6 +403,10 @@ def test_profile(kind: Literal["llm", "tts"], name: str) -> dict:
             from app.providers.llm import build_llm
 
             return build_llm("content", cfg, {"profile": name}).health()
+        if kind == "visuals":
+            from app.providers.visuals import probe
+
+            return probe(cfg, name)
         from app.providers.tts import list_voices
 
         return list_voices(cfg, name)
@@ -383,7 +528,7 @@ def list_secrets() -> dict:
     """
     cfg = get_config()
     names: list[str] = []
-    for block in (cfg.llm.profiles, cfg.tts.profiles):
+    for block in (cfg.llm.profiles, cfg.tts.profiles, cfg.visuals.profiles):
         for profile in block.values():
             env = profile.settings().get("api_key_env")
             if env and env not in names:

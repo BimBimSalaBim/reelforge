@@ -380,6 +380,9 @@ def sl_image(ov, d, t, t0, o):
         ov.alpha_composite(faded, (0, 0))
         S.scrim(ov, FULL_BLEED_DIM * k)
         ov.alpha_composite(_bottom_scrim(k))
+        if o.get("label"):
+            text(d, (W // 2, 1300 if CAPTIONS else 1460), o["label"],
+                 _fit(o["label"], 56, "bold"), WHITE, k, 2, "mb")
         return
 
     # A panel spans the full frame width, so it is rounded only where it does
@@ -402,12 +405,14 @@ def sl_image(ov, d, t, t0, o):
     faded.putalpha(alpha.point(lambda a: int(a * k)))
     ov.alpha_composite(faded, (x, y))
 
-    if o.get("caption"):
+    caption = o.get("caption") or o.get("label")
+    if caption:
         # above the image, never below: a panel at the bottom of the band ends
         # where the burned-in captions begin, and two lines of text in the same
         # place means neither can be read
-        text(d, (W // 2, y - 34), o["caption"],
-             _fit(o["caption"], 30, "med"), TH.muted, k, 0, "mb")
+        text(d, (W // 2, y - 34), caption,
+             _fit(caption, 30 if o.get("caption") else 40, "med" if o.get("caption") else "bold"),
+             TH.muted if o.get("caption") else WHITE, k, 0, "mb")
 
 
 def sl_scroll(ov, d, t, t0, o):
@@ -433,16 +438,98 @@ def sl_scroll(ov, d, t, t0, o):
     # Fitting a 8768px page into a 6s scene meant ~1600 px/s and read as a
     # blur; showing the repo is the point, not reaching its footer.
     p = clamp((t - t0 - 0.34) / max(dur - 0.34, 0.01))
-    hold, speed = 0.12, float(o.get("speed", 400))
+    hold, speed = 0.12, float(o.get("speed", 300))
     travel = min(max(0, img.height - band), speed * (dur - 0.34) * (1.0 - hold))
     q = clamp((p - hold) / max(1.0 - hold, 0.05))
     q = q * q * (3.0 - 2.0 * q)
     y = int(q * travel)
-    crop = img.crop((0, y, W, min(y + band, img.height)))
-    ov.alpha_composite(_rounded(crop.convert("RGBA"), 22), (0, top))
+    crop = _rounded(img.crop((0, y, W, min(y + band, img.height))).convert("RGBA"), 22)
+    # a README is a white page and this panel spans the frame, so the side
+    # bands take the same fade the full-width screenshots take
+    crop.putalpha(ImageChops.multiply(crop.getchannel("A"), _side_fade(crop.height)))
+    ov.alpha_composite(crop, (0, top))
     label = o.get("label") or DATA["tag"]
     if label:
         text(d, (W // 2, top - 30), label, m(30, "bold"), TH.accent_hi, k, 2, "mb")
+
+
+
+# ---- generated clips -------------------------------------------------------
+# A clip is a directory of JPEG frames at the reel's own size and frame rate,
+# extracted once by the visuals stage, so drawing it is pasting frame n --
+# exactly what the repo scroll does with one tall PNG, for the same reason:
+# the renderer is a PIL frame pump and cannot decode video.
+_CLIP_CACHE = {{}}
+_CLIP_ORDER = []
+
+
+def _clip_frame(dirname, index):
+    """One frame, behind a small LRU: a chunk process holds a handful of
+    decoded frames rather than a whole clip."""
+    key = (dirname, index)
+    if key in _CLIP_CACHE:
+        return _CLIP_CACHE[key]
+    path = os.path.join(HERE_IMAGES, dirname, "%05d.jpg" % (index + 1))
+    try:
+        img = Image.open(path).convert("RGBA")
+    except Exception:
+        img = None
+    _CLIP_CACHE[key] = img
+    _CLIP_ORDER.append(key)
+    while len(_CLIP_ORDER) > 12:
+        _CLIP_CACHE.pop(_CLIP_ORDER.pop(0), None)
+    return img
+
+
+def _clip_index(t, t0, fps, n):
+    """Ping-pong through the frames, so a scene longer than its clip turns
+    around instead of jumping back to the first frame."""
+    if n <= 1:
+        return 0
+    i = int(max(0.0, t - t0) * fps)
+    cycle = 2 * (n - 1)
+    i %= cycle
+    return i if i < n else cycle - i
+
+
+def _band_scrim(colour, height, solid, fade, flip=False):
+    """Solid `colour` for `solid` rows then a fade over `fade` rows -- the
+    shape the slab scroll uses so chrome stays legible over a picture."""
+    key = ("scrim", tuple(colour), height, solid, fade, flip)
+    if key not in _CLIP_CACHE:
+        layer = Image.new("RGBA", (W, height), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        for row in range(height):
+            r = height - 1 - row if flip else row
+            a = 1.0 if r < solid else max(0.0, 1.0 - (r - solid) / max(1, fade))
+            ld.line((0, row, W, row), fill=rgba(colour, a))
+        _CLIP_CACHE[key] = layer
+    return _CLIP_CACHE[key]
+
+
+def sl_clip(ov, d, t, t0, o):
+    """A generated clip, full bleed under the eyebrow and the captions.
+
+    Treated like a `full` screenshot: edge fade, the same dim scrim, the
+    bottom scrim so burned-in captions stay readable over moving picture.
+    """
+    k = eo3(lin(t, t0, t0 + 0.40))
+    if k <= 0.01:
+        return
+    img = _clip_frame(o["dir"], _clip_index(t, t0, int(o.get("fps", 30)), int(o.get("frames", 1))))
+    if img is None:
+        return
+    faded = img.copy()
+    alpha = ImageChops.multiply(img.getchannel("A"), _edge_fade())
+    faded.putalpha(alpha.point(lambda a: int(a * k)))
+    ov.alpha_composite(faded, (0, 0))
+    S.scrim(ov, FULL_BLEED_DIM * k)
+    ov.alpha_composite(_bottom_scrim(k))
+    # the scene's title over the bottom scrim, so a dark clip still carries
+    # a line of text and the screen is never just a picture under an eyebrow
+    if o.get("label"):
+        text(d, (W // 2, 1300 if CAPTIONS else 1460), o["label"],
+             _fit(o["label"], 48, "bold"), WHITE, k, 2, "mb")
 
 
 def sl_endcard(ov, d, t, t0, o):
@@ -456,7 +543,7 @@ SLOTS = {{
     "headline": sl_headline, "statcards": sl_statcards, "factlist": sl_factlist,
     "terminal": sl_terminal, "tiles": sl_tiles, "counter": sl_counter,
     "quote": sl_quote, "image": sl_image, "scroll": sl_scroll,
-    "endcard": sl_endcard,
+    "clip": sl_clip, "endcard": sl_endcard,
 }}
 
 
@@ -512,7 +599,7 @@ SLAB_TEMPLATE = '''\\
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 import kit, slab as S
 from kit import W, H, f, m, clamp, lin, eo3, eo4, rgba, tw, text, wrap
@@ -580,8 +667,29 @@ def _pairs(o, limit=3):
     return rows
 
 
+
+def _fit_row_value(label, value, avail, lsize, vsize, mono=True):
+    """The row draws its label from the left and its value against the right
+    edge; nothing else keeps them apart. Trim the value to the room the label
+    leaves, ellipsis and all, and drop it entirely when there is no room --
+    a missing value reads better than two strings through each other."""
+    if not value:
+        return value
+    room = avail - tw(str(label), f(lsize, "bold"), 1) - 28
+    if room < 60:
+        return None
+    face = (m if mono else f)(vsize)
+    out = str(value)
+    if tw(out, face, 0) <= room:
+        return out
+    while out and tw(out + "\u2026", face, 0) > room:
+        out = out[:-1]
+    return (out.rstrip() + "\u2026") if out else None
+
+
 def sl_factlist(ov, d, t, t0, o, i):
     rows = _pairs(o, int(o.get("limit", 3)))
+    rows = [(l, _fit_row_value(l, v, 996 - CX, 42, 32)) for l, v in rows]
     if rows:
         S.rows(ov, d, rows, t, t0, TH, i, y=int(o.get("y", 900)), h=120, lsize=42,
                vsize=32, lit=[1.0] * len(rows))
@@ -590,6 +698,7 @@ def sl_factlist(ov, d, t, t0, o, i):
 def sl_statcards(ov, d, t, t0, o, i):
     # _resolve emits "stats" here, not "rows"
     rows = [(str(l), str(v)) for v, l in (o.get("stats") or [])][:3]
+    rows = [(l, _fit_row_value(l, v, 996 - CX, 42, 34)) for l, v in rows]
     if rows:
         S.rows(ov, d, rows, t, t0, TH, i, y=int(o.get("y", 900)), h=120,
                lsize=42, vsize=34, lit=[1.0] * len(rows))
@@ -657,6 +766,25 @@ def sl_image(ov, d, t, t0, o, i):
         return
     S.rise(ov, lambda L, D, im=img.crop((0, 0, W, hgt)), yy=y:
            L.paste(im, (0, yy)), (0, y, W, y + hgt), k)
+    if o.get("label"):
+        S.chip(ov, d, (CX, y - 52), o["label"], t, t0 + 0.10, TH, i, size=34)
+
+
+def _side_scrims(ov, fill):
+    """Field colour over the outer columns, solid at the frame edge and gone
+    by the end of the margin -- the pan is a white page and full bleed, and
+    the platform UI sits exactly there."""
+    key = ("sidescrim", tuple(fill))
+    if key not in _CLIP_CACHE:
+        band = Image.new("RGBA", (150, H), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(band)
+        for x in range(150):
+            a = max(0.0, 1.0 - (x / 84.0) ** 1.4)
+            bd.line((x, 0, x, H), fill=rgba(fill, a))
+        _CLIP_CACHE[key] = band
+    band = _CLIP_CACHE[key]
+    ov.alpha_composite(band, (0, 0))
+    ov.alpha_composite(band.transpose(Image.FLIP_LEFT_RIGHT), (W - band.width, 0))
 
 
 def sl_scroll(ov, d, t, t0, o, i):
@@ -666,6 +794,100 @@ def sl_scroll(ov, d, t, t0, o, i):
     S.scroll(ov, d, t, t0 + 0.30, float(o.get("dur", 8.0)) - 0.30, TH, i, path,
              speed=float(o.get("speed", S.SCROLL_SPEED)),
              label=o.get("label") or DATA["tag"])
+    _side_scrims(ov, TH.field(i))
+
+
+
+# ---- generated clips -------------------------------------------------------
+# A clip is a directory of JPEG frames at the reel's own size and frame rate,
+# extracted once by the visuals stage, so drawing it is pasting frame n --
+# exactly what the repo scroll does with one tall PNG, for the same reason:
+# the renderer is a PIL frame pump and cannot decode video.
+_CLIP_CACHE = {{}}
+_CLIP_ORDER = []
+
+
+def _clip_frame(dirname, index):
+    """One frame, behind a small LRU: a chunk process holds a handful of
+    decoded frames rather than a whole clip."""
+    key = (dirname, index)
+    if key in _CLIP_CACHE:
+        return _CLIP_CACHE[key]
+    path = os.path.join(_HERE_IMAGES, dirname, "%05d.jpg" % (index + 1))
+    try:
+        img = Image.open(path).convert("RGBA")
+    except Exception:
+        img = None
+    _CLIP_CACHE[key] = img
+    _CLIP_ORDER.append(key)
+    while len(_CLIP_ORDER) > 12:
+        _CLIP_CACHE.pop(_CLIP_ORDER.pop(0), None)
+    return img
+
+
+def _clip_index(t, t0, fps, n):
+    """Ping-pong through the frames, so a scene longer than its clip turns
+    around instead of jumping back to the first frame."""
+    if n <= 1:
+        return 0
+    i = int(max(0.0, t - t0) * fps)
+    cycle = 2 * (n - 1)
+    i %= cycle
+    return i if i < n else cycle - i
+
+
+def _band_scrim(colour, height, solid, fade, flip=False):
+    """Solid `colour` for `solid` rows then a fade over `fade` rows -- the
+    shape the slab scroll uses so chrome stays legible over a picture."""
+    key = ("scrim", tuple(colour), height, solid, fade, flip)
+    if key not in _CLIP_CACHE:
+        layer = Image.new("RGBA", (W, height), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        for row in range(height):
+            r = height - 1 - row if flip else row
+            a = 1.0 if r < solid else max(0.0, 1.0 - (r - solid) / max(1, fade))
+            ld.line((0, row, W, row), fill=rgba(colour, a))
+        _CLIP_CACHE[key] = layer
+    return _CLIP_CACHE[key]
+
+_HERE_IMAGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images")
+_SIDE_MASK = [None]
+
+
+def _side_mask():
+    """Opaque across the safe width, fading to nothing at the frame edge."""
+    if _SIDE_MASK[0] is None:
+        mask = Image.new("L", (W, H), 255)
+        md = ImageDraw.Draw(mask)
+        edge = 84 + 36
+        for x in range(edge):
+            a = int(255 * (x / edge) ** 1.6)
+            md.line((x, 0, x, H), fill=a)
+            md.line((W - 1 - x, 0, W - 1 - x, H), fill=a)
+        _SIDE_MASK[0] = mask
+    return _SIDE_MASK[0]
+
+
+def sl_clip(ov, d, t, t0, o, i):
+    """Full bleed, with the slab scroll's scrims so the rail at y 128 and the
+    footer at y 1524 sit on field colour rather than on the picture."""
+    k = S.rk(t, t0, 0.40)
+    if k <= 0.01:
+        return
+    img = _clip_frame(o["dir"], _clip_index(t, t0, int(o.get("fps", 30)), int(o.get("frames", 1))))
+    if img is None:
+        return
+    layer = img.copy()
+    # fade the sides into the field: the platform's UI sits in the outer
+    # columns, and a bright picture there is content nobody can read
+    alpha = ImageChops.multiply(layer.getchannel("A"), _side_mask())
+    layer.putalpha(alpha.point(lambda a: int(a * k)))
+    ov.alpha_composite(layer, (0, 0))
+    fill = TH.field(i)
+    ov.alpha_composite(_band_scrim(fill, 340, 176, 164), (0, 0))
+    ov.alpha_composite(_band_scrim(fill, H - 1330, H - 1484, 154, flip=True), (0, 1330))
+    if o.get("label"):
+        S.chip(ov, d, (CX, 236), o["label"], t, t0 + 0.10, TH, i, size=32)
 
 
 def sl_endcard(ov, d, t, t0, o, i):
@@ -677,7 +899,7 @@ SLOTS = {{
     "headline": sl_headline, "statcards": sl_statcards, "factlist": sl_factlist,
     "terminal": sl_terminal, "tiles": sl_tiles, "counter": sl_counter,
     "quote": sl_quote, "image": sl_image, "scroll": sl_scroll,
-    "endcard": sl_endcard,
+    "clip": sl_clip, "endcard": sl_endcard,
 }}
 
 PRE_ROLL = 0.30
@@ -787,11 +1009,33 @@ def _rows(o, key="rows", limit=5):
     return out
 
 
+
+def _fit_row_value(label, value, avail, lsize, vsize, mono=True):
+    """The row draws its label from the left and its value against the right
+    edge; nothing else keeps them apart. Trim the value to the room the label
+    leaves, ellipsis and all, and drop it entirely when there is no room --
+    a missing value reads better than two strings through each other."""
+    if not value:
+        return value
+    room = avail - tw(str(label), f(lsize, "bold"), 1) - 28
+    if room < 60:
+        return None
+    face = (m if mono else f)(vsize)
+    out = str(value)
+    if tw(out, face, 0) <= room:
+        return out
+    while out and tw(out + "\u2026", face, 0) > room:
+        out = out[:-1]
+    return (out.rstrip() + "\u2026") if out else None
+
+
 def sl_factlist(ov, d, t, t0, o, i):
     rows = _rows(o, "rows", int(o.get("rows_limit", 5)))
     y = int(o.get("y", 700))
     for j, (label, value) in enumerate(rows):
-        L.row(ov, d, t, t0 + j * 0.09, TH, y + j * 88, label, value, h=74)
+        ry = y + j * 88
+        value = _fit_row_value(label, value, right_edge(ry) - CX, 34, 28)
+        L.row(ov, d, t, t0 + j * 0.09, TH, ry, label, value, h=74)
 
 
 def sl_tiles(ov, d, t, t0, o, i):
@@ -857,6 +1101,8 @@ def sl_image(ov, d, t, t0, o, i):
     L.wipe(ov, lambda Lay, D, c=crop, xx=int(x0), yy=top:
            Lay.paste(c.resize((int(RIGHT - xx), show)), (xx, yy)),
            (x0, top, RIGHT, top + show), k)
+    if o.get("label") and top + show + 70 < 1600:
+        text(d, (CX, top + show + 28), o["label"], f(40, "bold"), WHITE, k, 0, "lt")
 
 
 def sl_scroll(ov, d, t, t0, o, i):
@@ -869,6 +1115,83 @@ def sl_scroll(ov, d, t, t0, o, i):
              label=o.get("label") or "")
 
 
+
+# ---- generated clips -------------------------------------------------------
+# A clip is a directory of JPEG frames at the reel's own size and frame rate,
+# extracted once by the visuals stage, so drawing it is pasting frame n --
+# exactly what the repo scroll does with one tall PNG, for the same reason:
+# the renderer is a PIL frame pump and cannot decode video.
+_CLIP_CACHE = {{}}
+_CLIP_ORDER = []
+
+
+def _clip_frame(dirname, index):
+    """One frame, behind a small LRU: a chunk process holds a handful of
+    decoded frames rather than a whole clip."""
+    key = (dirname, index)
+    if key in _CLIP_CACHE:
+        return _CLIP_CACHE[key]
+    path = os.path.join(_HERE_IMAGES, dirname, "%05d.jpg" % (index + 1))
+    try:
+        img = Image.open(path).convert("RGBA")
+    except Exception:
+        img = None
+    _CLIP_CACHE[key] = img
+    _CLIP_ORDER.append(key)
+    while len(_CLIP_ORDER) > 12:
+        _CLIP_CACHE.pop(_CLIP_ORDER.pop(0), None)
+    return img
+
+
+def _clip_index(t, t0, fps, n):
+    """Ping-pong through the frames, so a scene longer than its clip turns
+    around instead of jumping back to the first frame."""
+    if n <= 1:
+        return 0
+    i = int(max(0.0, t - t0) * fps)
+    cycle = 2 * (n - 1)
+    i %= cycle
+    return i if i < n else cycle - i
+
+
+def _band_scrim(colour, height, solid, fade, flip=False):
+    """Solid `colour` for `solid` rows then a fade over `fade` rows -- the
+    shape the slab scroll uses so chrome stays legible over a picture."""
+    key = ("scrim", tuple(colour), height, solid, fade, flip)
+    if key not in _CLIP_CACHE:
+        layer = Image.new("RGBA", (W, height), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        for row in range(height):
+            r = height - 1 - row if flip else row
+            a = 1.0 if r < solid else max(0.0, 1.0 - (r - solid) / max(1, fade))
+            ld.line((0, row, W, row), fill=rgba(colour, a))
+        _CLIP_CACHE[key] = layer
+    return _CLIP_CACHE[key]
+
+_HERE_IMAGES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images")
+
+
+def sl_clip(ov, d, t, t0, o, i):
+    """Inside the stage band, hung off the spine like a screenshot: the
+    centre of each frame, scaled to the band's width and wiped in."""
+    top, band = _panel_band()
+    k = L.wk(t, t0, 0.36)
+    if k <= 0.01:
+        return
+    img = _clip_frame(o["dir"], _clip_index(t, t0, int(o.get("fps", 30)), int(o.get("frames", 1))))
+    if img is None:
+        return
+    x0 = CX - 22
+    width = int(RIGHT - x0)
+    scaled_h = int(img.height * width / img.width)
+    show = min(band, scaled_h)
+    frame_img = img.convert("RGB").resize((width, scaled_h), Image.LANCZOS)
+    y_off = (scaled_h - show) // 2
+    crop = frame_img.crop((0, y_off, width, y_off + show))
+    L.wipe(ov, lambda Lay, D, c=crop, xx=int(x0), yy=top: Lay.paste(c, (xx, yy)),
+           (x0, top, RIGHT, top + show), k)
+
+
 def sl_endcard(ov, d, t, t0, o, i):
     L.endcard(ov, d, t, t0 - 0.30, TH, DATA["wordmark"], DATA["endcard_sub"],
               DATA["url"], DATA["url2"], DATA["cta"],
@@ -879,7 +1202,7 @@ SLOTS = {{
     "headline": sl_headline, "statcards": sl_statcards, "factlist": sl_factlist,
     "terminal": sl_terminal, "tiles": sl_tiles, "counter": sl_counter,
     "quote": sl_quote, "image": sl_image, "scroll": sl_scroll,
-    "endcard": sl_endcard,
+    "clip": sl_clip, "endcard": sl_endcard,
 }}
 
 PRE_ROLL = 0.30
@@ -1119,6 +1442,10 @@ def _resolve(slot, bundle: dict, variant: int) -> dict | None:
         out["eyebrow"] = picked.get("eyebrow", "")
         if picked.get("caption"):
             out["caption"] = _clip(picked["caption"], 44)
+        # a generated picture has no text in it by design; the words it
+        # needs are painted over it here
+        if picked.get("heading"):
+            out["label"] = _clip(picked["heading"], 40)
     elif kind == "counter":
         target, label = _countable(bundle, source, variant)
         if target is None:
@@ -1136,6 +1463,16 @@ def _resolve(slot, bundle: dict, variant: int) -> dict | None:
             return None
         out["file"] = shot["file"]
         out["label"] = shot.get("label", "")
+    elif kind == "clip":
+        pool = list(bundle.get(source) or [])
+        if not pool:
+            return None
+        picked = pool[variant % len(pool)]
+        out["dir"] = picked["dir"]
+        out["fps"] = int(picked.get("fps", 30))
+        out["frames"] = int(picked.get("frames", 1))
+        out["label"] = picked.get("label", "")
+        out["eyebrow"] = picked.get("label", "")
     elif kind in ("factlist", "tiles"):
         rows = list(bundle.get(source) or [])
         want = int(options.get("rows", 4))
@@ -1219,6 +1556,7 @@ def build_source(
     images: list[dict] | None = None,
     family: str = "bloom",
     scroll: dict | None = None,
+    clips: list[dict] | None = None,
 ) -> str:
     """Assemble the module source for this content.
 
@@ -1250,8 +1588,10 @@ def build_source(
     bundle = {
         "captions": bool(captions),
         "images": list(images or []),
+        "clips": list(clips or []),
         "scroll": dict(scroll) if scroll else None,
         "image_eyebrow": (images[0]["eyebrow"] if images else "A LOOK"),
+        "clip_eyebrow": (clips[0].get("label") if clips else "") or "IN MOTION",
         "hook_lines": hook_lines,
         "point_lines": point_lines,
         "stats": [list(x) for x in content.cover.stats],

@@ -39,6 +39,7 @@ CAPABILITIES = {
     "counter": lambda c: 1 if c.get("counter") else 0,
     "images": lambda c: len(c.get("images") or []),
     "scroll": lambda c: 1 if c.get("scroll") else 0,
+    "clips": lambda c: len(c.get("clips") or []),
 }
 
 
@@ -84,7 +85,7 @@ def catalogue(name: str = "default") -> list[Layout]:
     path = SCREEN_DIR / f"{name}.yaml"
     if not path.exists():
         path = SCREEN_DIR / "default.yaml"
-    raw = yaml.safe_load(path.read_text()) or []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []
     return [
         Layout(
             id=entry["id"],

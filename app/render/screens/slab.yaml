@@ -45,13 +45,22 @@
   weight: 99
   needs: [scroll]
   slots:
-    # pan rate in frame-pixels/second; 400 reads as a page going by,
+    # pan rate in frame-pixels/second; 300 reads as a page going by,
     # 1600 (which is what fitting a whole README into one scene gives) is a blur
-    - {kind: scroll, source: scroll, speed: 400}
+    - {kind: scroll, source: scroll, speed: 300}
 
 # A screenshot is the one thing on screen the pipeline did not draw, so it is
 # worth the most when one exists -- and repeats with a variant so three uploads
 # become three screens.
+# A generated clip, full bleed under the rail and the footer.
+- id: slab-motion
+  eyebrow: ""
+  weight: 97
+  needs: [clips>=1]
+  repeat_with: clips
+  slots:
+    - {kind: clip, source: clips}
+
 - id: slab-image
   eyebrow: ""
   weight: 96

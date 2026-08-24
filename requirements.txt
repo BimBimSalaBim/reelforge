@@ -24,3 +24,7 @@ openai==1.59.6
 # Optional at runtime: the capture declines and the reel is built without that
 # screen if the package or a browser is missing.
 playwright>=1.40
+
+# Fish-Speech narration (app/providers/tts/fish.py) talks to its Gradio app.
+# Optional at runtime: only the `fish` voice adapter imports it.
+gradio_client>=1.4

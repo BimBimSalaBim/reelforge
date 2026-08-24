@@ -20,6 +20,8 @@ Correctness guards, in order of how much time they have cost historically:
 """
 from __future__ import annotations
 
+import json
+
 import os
 import re
 import shutil
@@ -89,18 +91,40 @@ def probe_frames(path: Path) -> int:
         raise RenderError(f"could not count frames in {path}: {proc.stderr.strip()}") from None
 
 
-def run_sfx(workspace: Path, slug: str, *, allow_system_fonts: bool = False) -> Path:
-    """Build `build/<slug>.mix.wav` from the narration plus the storyboard's SFX."""
+def run_sfx(workspace: Path, slug: str, *, allow_system_fonts: bool = False,
+            audio: dict | None = None) -> Path:
+    """Build `build/<slug>.mix.wav` from the narration plus the storyboard's SFX.
+
+    `audio` carries the optional extras: `sfx_dir` (generated one-shots),
+    `music` (a bed wav) with `music_gain_db` / `music_duck_db`.
+    """
     cmd = [_python(), "-m", "app.render.shim_sfx",
            "--workspace", str(workspace), "--storyboard", slug]
     if allow_system_fonts:
         cmd.append("--allow-system-fonts")
+    audio = audio or {}
+    if audio.get("sfx_dir"):
+        cmd += ["--sfx-dir", str(audio["sfx_dir"])]
+    if audio.get("music"):
+        cmd += ["--music", str(audio["music"]),
+                "--music-gain-db", str(audio.get("music_gain_db", -22.0)),
+                "--music-duck-db", str(audio.get("music_duck_db", -9.0))]
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=_repo_root(),
                           env=_child_env(), check=False)
     mix = workspace / "build" / f"{slug}.mix.wav"
     if proc.returncode != 0 or not mix.exists():
         raise RenderError(f"audio mix failed:\n{proc.stderr.strip() or proc.stdout.strip()}")
+    try:
+        LAST_MIX_REPORT.clear()
+        LAST_MIX_REPORT.update(json.loads(proc.stdout.strip().splitlines()[-1]))
+    except (ValueError, IndexError):
+        pass
     return mix
+
+
+#: What the last `run_sfx` reported: which sample kinds were swapped in and
+#: how the bed was mixed. Read by the render stage for its meta.
+LAST_MIX_REPORT: dict = {}
 
 
 def _render_one_chunk(
@@ -159,6 +183,7 @@ def render(
     *,
     progress: ProgressFn | None = None,
     allow_system_fonts: bool = False,
+    audio: dict | None = None,
 ) -> RenderResult:
     """Render `slug` in `workspace` to `out`. Chunked unless config says otherwise."""
     import time
@@ -167,7 +192,7 @@ def render(
     fps, width, height = cfg.render.fps, cfg.render.width, cfg.render.height
     started = time.time()
 
-    mix = run_sfx(workspace, slug, allow_system_fonts=allow_system_fonts)
+    mix = run_sfx(workspace, slug, allow_system_fonts=allow_system_fonts, audio=audio)
     if progress:
         progress("mix", 1.0, f"narration + SFX mixed ({mix.stat().st_size // 1024} KiB)")
 
@@ -274,7 +299,7 @@ def _render_chunked(workspace, slug, total, mix, staging, fps, width, height,
             f"file '{(parts_dir / f'part{i:03d}.mp4').resolve()}'\n"
             for i in range(len(bounds))
         )
-    )
+    , encoding="utf-8")
     joined = staging / "joined.mp4"
     proc = subprocess.run(encode.concat_cmd(ffmpeg_bin(), list_file, joined),
                           capture_output=True, text=True, check=False)
@@ -288,7 +313,10 @@ def _render_chunked(workspace, slug, total, mix, staging, fps, width, height,
                                        check=False),
     )
     if progress and len(loudness["passes"]) > 1:
-        progress(f"loudness corrected over {len(loudness['passes'])} passes "
+        # (tag, fraction, message) like every other call -- this one used to
+        # pass a bare string and failed the stage on the first multi-pass reel
+        progress("loudness", 1.0,
+                 f"loudness corrected over {len(loudness['passes'])} passes "
                  f"to {loudness['loudness']:.1f} LUFS / "
                  f"{loudness['true_peak']:.1f} dBTP")
 

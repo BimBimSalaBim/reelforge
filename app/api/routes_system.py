@@ -34,6 +34,7 @@ def stages() -> list[dict]:
         "ingest": "Fetch the facts from GitHub or Hugging Face",
         "content": "Write the script, fact sheet, cover spec and platform copy",
         "cover": "Render the cover image",
+        "visuals": "Generate stills, clips and a cover backdrop with ComfyUI, when switched on",
         "audio": "Synthesize or accept the narration",
         "align": "Align the narration to the phrase list",
         "storyboard": "Write the storyboard and prove it renders",
@@ -92,15 +93,28 @@ def _probe_all(cfg) -> dict:
         entry["provider"] = name
         return entry
 
+    def visuals_probe(item):
+        from app.providers.visuals import probe
+
+        name, profile = item
+        entry = {"provider": name, "adapter": profile.adapter,
+                 "label": profile.display(), "configured": name == cfg.visuals.active}
+        entry |= probe(cfg, name)
+        entry["provider"] = name
+        return entry
+
     llm_items = list(cfg.llm.profiles.items())
     tts_items = list(cfg.tts.profiles.items())
-    workers = max(2, min(12, len(llm_items) + len(tts_items)))
+    visuals_items = list(cfg.visuals.profiles.items())
+    workers = max(2, min(12, len(llm_items) + len(tts_items) + len(visuals_items)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         llm_futures = [pool.submit(llm_probe, item) for item in llm_items]
         tts_futures = [pool.submit(tts_probe, item) for item in tts_items]
+        visuals_futures = [pool.submit(visuals_probe, item) for item in visuals_items]
         llm = [f.result() for f in llm_futures]
         tts = [f.result() for f in tts_futures]
-    return {"llm": llm, "tts": tts}
+        visuals = [f.result() for f in visuals_futures]
+    return {"llm": llm, "tts": tts, "visuals": visuals}
 
 
 @router.get("/config/providers")
@@ -201,6 +215,13 @@ def profiles_only() -> dict:
                 "providers": [{"provider": n, "adapter": p.adapter,
                                "label": p.display()}
                               for n, p in cfg.tts.profiles.items()]},
+        "visuals": {"selected": cfg.visuals.active, "enabled": cfg.visuals.enabled,
+                    "stills": cfg.visuals.stills, "clips": cfg.visuals.clips,
+                    "cover": cfg.visuals.cover,
+                    "providers": [{"provider": n, "adapter": p.adapter,
+                                   "label": p.display()}
+                                  for n, p in cfg.visuals.profiles.items()
+                                  if p.adapter != "fake"]},
         "executor": mode(),
         # the new-reel form defaults its captions box and fact-check menu here
         "burn_captions": cfg.content.burn_captions,

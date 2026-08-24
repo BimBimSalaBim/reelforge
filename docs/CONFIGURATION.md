@@ -155,6 +155,130 @@ Two things are chosen per reel rather than globally, on the **New reel** form:
 
 ---
 
+## Generated imagery (ComfyUI)
+
+```yaml
+visuals:
+  active: comfyui              # `none` switches the whole thing off
+  profiles:
+    comfyui:
+      adapter: comfyui
+      base_url: http://gpu-box:8188
+      image_workflow: app/workflows/image_qwen_image_2512.json
+      video_workflow: app/workflows/video_ltx2_5_t2v.json
+  stills: 2
+  clips: 1
+  clip_seconds: 5.0
+  cover: true
+```
+
+A third profile kind beside models and voices, with the same Settings page
+controls: add, test, use. `none` is always present and is the default, so a
+clone behaves exactly as it did before this existed.
+
+With a ComfyUI profile active, a `visuals` stage runs after `cover`:
+
+- **Stills.** One per body scene (never the hook or the close), prompted from
+  the scene's `on_screen` direction with the typography instructions stripped
+  out -- "the word *requests* types itself in" is a picture of text, which the
+  storyboard draws itself anyway. Placed by the same screen catalogue as an
+  uploaded screenshot, so the `screenshot` layouts carry them.
+- **Clips.** From the scene with a written `b_roll` shot (the content prompt
+  asks for one; nothing read it until now), else the longest body scene.
+  Delivered as JPEG frames at 1080x1920 / 30 fps -- the renderer is a PIL
+  frame pump and cannot decode video, the same reason the repo B-roll is one
+  tall screenshot. A `motion` layout in every family pastes frame *n* and
+  ping-pongs when the scene outlasts the clip.
+- **Cover backdrop.** A 1080x1920 picture darkened toward the palette under
+  the wordmark and hook, replacing the procedural ground. The typography, the
+  stat cards and the Instagram centre-crop rule are untouched. Fails soft: a
+  server that is down gives the ordinary cover.
+
+Every prompt gets the template's palette words and the `style` suffix, so a
+reel's assets share one look. Seeds are derived from the job and the prompt,
+so a re-run with nothing changed reproduces the same picture and skips the
+generation; editing `visuals/visuals.json` is not the way to change a prompt --
+edit the scene's direction on the content gate and re-run.
+
+**Workflows.** The two shipped files are ComfyUI *API-format* exports. To use
+your own: Workflow > Export (API), save it under `app/workflows/`, and set
+`image_workflow` / `video_workflow`. The adapter finds the prompt (the text
+node feeding the sampler's `positive`, through a switch if there is one), the
+seed, the empty-latent size and the Save node by walking the graph; for a
+graph where that guesses wrong, name the node ids in `image_nodes` /
+`video_nodes` -- see the shipped map in `config.yaml`. A UI-format export (the
+one with a `nodes` list) is refused with a message saying which export to use.
+
+**Testing a profile** probes `/system_stats`, reports the GPUs, and checks
+every `*Loader` node's model name against what the server lists, so a missing
+checkpoint shows up before a job spends ten minutes finding out.
+
+**Per reel:** the New reel form has *use configured / on / off*, and
+`PATCH /api/jobs/{id}` takes `{"visuals": {"enabled": ..., "stills": ...,
+"clips": ..., "cover": ..., "profile": ...}}`. Changing it re-runs from
+`content` downstream, because the backdrop is drawn by the cover stage.
+
+### Generated audio: a music bed and the cut sounds
+
+The same ComfyUI profile can carry a text-to-audio workflow (`audio_workflow`;
+a Stable Audio 3 graph ships in `app/workflows/`). It is **not speech** -- a
+text-to-audio model has no words, and narration stays with the voice profiles
+(see *Fish-Speech* below for a self-hosted voice). What it gives a reel:
+
+- **A music bed.** `visuals.music: true` (or per reel) plans one 60 s
+  instrumental from the template's `music` hint -- lo-fi for `warm-amber`,
+  sparse piano for `editorial` -- and the render stage mixes it under the
+  narration: `music_gain_db` below full scale, ducked a further
+  `music_duck_db` while the narrator speaks (an envelope follower with a fast
+  attack and a slow release, so pauses let it breathe without pumping), faded
+  in at the top and out under the end card. The narration itself is never
+  touched and the loudness pass downstream sees the same kind of material.
+  Off by default: DEVELOPMENT.md's rule is voice only, and a bed anyone
+  notices is too loud.
+- **Cut sounds.** `visuals.sfx_samples: true` replaces the synthesized
+  thump/swish/tick set (twelve kinds across the three families, see
+  `video/sfx.py`) with generated one-shots. Made once per profile into
+  `data/sfx/<profile>/` -- `python -m app.cli sfx-library` does it up front,
+  or the first reel that asks does -- and swapped in by the mix shim with the
+  storyboard's `amp` and `dur` honoured, so no storyboard changes.
+
+### Fish-Speech narration
+
+```yaml
+tts:
+  active: fish
+  profiles:
+    fish:
+      adapter: fish
+      base_url: http://gpu-box:7860      # the Gradio app
+      reference_audio: ""                # a 10-30 s wav of the voice to clone
+      reference_text: ""                 # its transcript
+      seed: 1
+```
+
+A voice adapter for Fish-Speech / OpenAudio behind its Gradio app (needs
+`gradio_client`, in `requirements.txt`). Phrases are synthesized one by one,
+and without a reference the model is free to pick a different timbre per
+call -- so the adapter always uses one. Upload a recording to clone in the
+profile's editor (**Sample voice**, either UI; it lands in
+`data/tts/references/<profile>.<ext>` and goes to the Gradio API as
+`reference_audio` with every phrase, the transcript as `reference_text`), or
+let it fix a voice itself: one seeded calibration sentence, generated once into
+`data/tts/fish/` and fed back as the reference for every phrase of every reel.
+Change the seed to change the voice.
+
+The reel is as long as the narration turns out to be: the storyboard paces
+its screens to the total, so a slow voice simply makes a longer reel. The
+36-44s target remains script guidance; the only hard bounds are the
+platforms' own 30-90s, checked before the render rather than after it.
+
+**Codegen templates** (`cool-indigo`, `warm-amber`, `editorial`, `research`)
+are told which files exist, with a four-line snippet for drawing a still or a
+clip frame, and may use them in the scenes they belong to. The deterministic
+templates and the fallback always do.
+
+---
+
 ## Multiple ElevenLabs keys
 
 Credits are metered per character and a narration is a dozen calls, so an
@@ -184,6 +308,12 @@ without spending anything.
 ---
 
 ## Rendering
+
+`render.ffmpeg_dir` names a directory holding the ffmpeg/ffprobe to use; it is
+put first on PATH for the app and every child it spawns. The encode settings
+need ffmpeg 4.0 or later -- an older build rejects `-colorspace bt709` and
+the chunk renderer fails with a bare broken pipe. `doctor` reports the
+version it found.
 
 ```yaml
 render:
