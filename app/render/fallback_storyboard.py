@@ -549,9 +549,9 @@ def _fit_line(value, face, track, budget, url=False):
         out = out.split("/", 1)[1]
         if tw(out, face, track) <= budget:
             return out
-    while out and tw(out + "\u2026", face, track) > budget:
+    while out and tw(out + "\\u2026", face, track) > budget:
         out = out[:-1]
-    return (out.rstrip() + "\u2026") if out else str(value)[:8]
+    return (out.rstrip() + "\\u2026") if out else str(value)[:8]
 
 
 def sl_endcard(ov, d, t, t0, o):
@@ -639,6 +639,10 @@ PHRASES  = {phrases!r}
 TOTAL    = {total}
 FPS      = 30
 CAPTIONS = False          # Slab has no caption plate; see DEVELOPMENT.md
+#: The rail at y 128 is Slab's one deliberate mark inside the top margin --
+#: persistent chrome, not stray content. Declared so the smoke check's band
+#: test leaves those rows to the design.
+SAFE_CLAIMED = ((120, 148),)
 
 DATA = {data}
 
@@ -709,9 +713,9 @@ def _fit_row_value(label, value, avail, lsize, vsize, mono=True):
     out = str(value)
     if tw(out, face, 0) <= room:
         return out
-    while out and tw(out + "\u2026", face, 0) > room:
+    while out and tw(out + "\\u2026", face, 0) > room:
         out = out[:-1]
-    return (out.rstrip() + "\u2026") if out else None
+    return (out.rstrip() + "\\u2026") if out else None
 
 
 def sl_factlist(ov, d, t, t0, o, i):
@@ -806,7 +810,10 @@ def _side_scrims(ov, fill):
         band = Image.new("RGBA", (150, H), (0, 0, 0, 0))
         bd = ImageDraw.Draw(band)
         for x in range(150):
-            a = max(0.0, 1.0 - (x / 84.0) ** 1.4)
+            # still ~55% cover AT the safe edge, gone by x 150: a fade that
+            # reaches zero at x 84 leaves the outer checked columns bare,
+            # and a white page there is exactly what trips the band test
+            a = max(0.0, 1.0 - (x / 150.0) ** 1.4)
             bd.line((x, 0, x, H), fill=rgba(fill, a))
         _CLIP_CACHE[key] = band
     band = _CLIP_CACHE[key]
@@ -934,9 +941,9 @@ def _fit_line(value, face, track, budget, url=False):
         out = out.split("/", 1)[1]
         if tw(out, face, track) <= budget:
             return out
-    while out and tw(out + "\u2026", face, track) > budget:
+    while out and tw(out + "\\u2026", face, track) > budget:
         out = out[:-1]
-    return (out.rstrip() + "\u2026") if out else str(value)[:8]
+    return (out.rstrip() + "\\u2026") if out else str(value)[:8]
 
 
 def sl_endcard(ov, d, t, t0, o, i):
@@ -1077,9 +1084,9 @@ def _fit_row_value(label, value, avail, lsize, vsize, mono=True):
     out = str(value)
     if tw(out, face, 0) <= room:
         return out
-    while out and tw(out + "\u2026", face, 0) > room:
+    while out and tw(out + "\\u2026", face, 0) > room:
         out = out[:-1]
-    return (out.rstrip() + "\u2026") if out else None
+    return (out.rstrip() + "\\u2026") if out else None
 
 
 def sl_factlist(ov, d, t, t0, o, i):
@@ -1262,9 +1269,9 @@ def _fit_line(value, face, track, budget, url=False):
         out = out.split("/", 1)[1]
         if tw(out, face, track) <= budget:
             return out
-    while out and tw(out + "\u2026", face, track) > budget:
+    while out and tw(out + "\\u2026", face, track) > budget:
         out = out[:-1]
-    return (out.rstrip() + "\u2026") if out else str(value)[:8]
+    return (out.rstrip() + "\\u2026") if out else str(value)[:8]
 
 
 def sl_endcard(ov, d, t, t0, o, i):

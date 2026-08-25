@@ -182,7 +182,7 @@ def test_the_sfx_shim_swaps_samples_in_and_mixes_the_bed(sample, tmp_path):
     B.write_wav(workspace / f"{sample.slug}.mp3", narr)   # sfx.py decodes via ffmpeg; wav content is fine
     source = build_source(sample, total=total, audio_rel=f"video/{sample.slug}.mp3",
                           phrases_rel=f"phrases/{sample.slug}.txt", segments=segments)
-    (workspace / "storyboards" / f"{sample.slug}.py").write_text(source)
+    (workspace / "storyboards" / f"{sample.slug}.py").write_text(source, encoding="utf-8")
 
     fake = FakeProvider({})
     library = tmp_path / "sfx"

@@ -42,8 +42,20 @@ DIFF_THRESHOLD = 26
 #: not information anyone loses when the platform UI covers them. Measured on
 #: that frame: the top band peaks at luminance 17 and the left band at 72, while
 #: the headline sits at 192 and foreground text reaches 255. Anything a viewer
-#: would actually read is far above this line.
-LEGIBLE_LUMA = 150
+#: How far a pixel's luminance must sit from its band's own ground to count
+#: as legible content. Contrast, not brightness: the original rule counted
+#: pixels brighter than 150, which is the same thing on the near-black
+#: grounds it was written against (ground ~15, so 150 is ~135 of contrast)
+#: -- and nonsense on Slab, whose full-bleed fields are themselves bright,
+#: so the *background* tripped every band from frame 0. Each band's ground
+#: is its median: the ground dominates a margin band unless something is
+#: actually drawn there, and then that is the point.
+LEGIBLE_CONTRAST = 135
+#: The whole-frame legibility fraction (which feeds the `sparse` rung) uses a
+#: gentler bar: a photographic frame carries its information as mid-contrast
+#: spread, not as text-grade extremes, and 100 sits above the grounds' own
+#: decoration (Bloom's blooms peak ~57 of contrast) and below any real text.
+FRAME_CONTRAST = 100
 #: Share of a band that must carry legible content before it is reported.
 BAND_TRIP = 0.004
 #: `sbkit.chrome` draws a progress bar across y 0-5 on every frame, deliberately.
@@ -169,6 +181,7 @@ def main() -> int:
         base = getattr(sb, "BASE", None)
     except Exception:
         base = None
+    claimed = claimed_rows(sb, report["problems"])
 
     for index, t in enumerate(times):
         recorder.reset()
@@ -190,7 +203,7 @@ def main() -> int:
         path = args.out / f"smoke_{index:02d}_t{t:07.3f}.png"
         image.convert("RGB").save(path)
         entry = {"t": t, "path": str(path)}
-        entry.update(inspect_frame(image, base))
+        entry.update(inspect_frame(image, base, claimed))
         entry["collisions"] = collisions(recorder.boxes)
         entry["strings"] = len(recorder.boxes)
         report["frames"].append(entry)
@@ -267,7 +280,44 @@ def check_scene_table(scenes: list[tuple[str, float, float]], total: float) -> l
     return problems
 
 
-def inspect_frame(image, base) -> dict:
+#: How many rows of the top margin a design may claim for its own chrome.
+CLAIM_LIMIT_ROWS = 60
+
+
+def claimed_rows(sb, problems) -> list[tuple[int, int]]:
+    """Row spans the storyboard declares as its own persistent chrome.
+
+    Slab's rail lives at y 128 by design -- the one deliberate mark inside
+    the top margin -- and the band test must not read a design's documented
+    chrome as stray content. The claim is narrow on purpose: spans must sit
+    entirely inside the top margin (the content area can never be exempted),
+    and at most CLAIM_LIMIT_ROWS in total, so a generated module cannot claim
+    its way past the check.
+    """
+    raw = getattr(sb, "SAFE_CLAIMED", None) or ()
+    spans: list[tuple[int, int]] = []
+    total = 0
+    for item in raw:
+        try:
+            y0, y1 = int(item[0]), int(item[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if not (CHROME_ROWS <= y0 < y1 <= TOP_SAFE):
+            problems.append({"rung": "safe-area", "message":
+                f"SAFE_CLAIMED span ({y0}, {y1}) is outside the top margin "
+                f"(y {CHROME_ROWS}-{TOP_SAFE}); only chrome above the safe area "
+                "may be claimed."})
+            continue
+        total += y1 - y0
+        spans.append((y0, y1))
+    if total > CLAIM_LIMIT_ROWS:
+        problems.append({"rung": "safe-area", "message":
+            f"SAFE_CLAIMED claims {total} rows; the ceiling is {CLAIM_LIMIT_ROWS}."})
+        return []
+    return spans
+
+
+def inspect_frame(image, base, claimed: list[tuple[int, int]] | None = None) -> dict:
     """How much was drawn, and whether anything *legible* is under the platform UI.
 
     Two different questions, two different measurements:
@@ -279,8 +329,10 @@ def inspect_frame(image, base) -> dict:
 
     `outside_safe` is about legibility, not difference. A full-bleed decorative
     layer moving behind the content is not information a viewer loses when the
-    app's UI covers it, so the band test looks for bright pixels -- text and
-    accents -- rather than merely changed ones.
+    app's UI covers it, so the band test looks for pixels that contrast with
+    the band's own ground -- text and accents -- rather than merely changed
+    ones. Contrast rather than brightness, because Slab's grounds are bright
+    and its ink is dark; each band's ground is its median.
     """
     import numpy as np
 
@@ -296,17 +348,28 @@ def inspect_frame(image, base) -> dict:
     drawn = delta > DIFF_THRESHOLD
 
     luma = 0.2126 * rgb[:, :, 0] + 0.7152 * rgb[:, :, 1] + 0.0722 * rgb[:, :, 2]
-    legible = luma > LEGIBLE_LUMA
-    width = legible.shape[1]
+    legible = np.abs(luma - float(np.median(luma))) > FRAME_CONTRAST
+    width = luma.shape[1]
+
+    top = luma[CHROME_ROWS:TOP_SAFE, :].copy()
+    for y0, y1 in claimed or ():
+        # rows a design has claimed for its chrome are its business
+        top[max(0, y0 - CHROME_ROWS):max(0, y1 - CHROME_ROWS), :] = np.nan
     bands = {
         # the progress bar across y 0-5 is deliberate decoration, not information
-        "top": legible[CHROME_ROWS:TOP_SAFE, :],
-        "bottom": legible[BOT_SAFE:, :],
-        "left": legible[TOP_SAFE:BOT_SAFE, :MARGIN],
-        "right": legible[TOP_SAFE:BOT_SAFE, width - MARGIN:],
+        "top": top,
+        "bottom": luma[BOT_SAFE:, :],
+        "left": luma[TOP_SAFE:BOT_SAFE, :MARGIN],
+        "right": luma[TOP_SAFE:BOT_SAFE, width - MARGIN:],
     }
-    outside = [name for name, band in bands.items()
-               if band.size and float(band.mean()) > BAND_TRIP]
+    outside = []
+    for name, band in bands.items():
+        band = band[~np.isnan(band)] if np.isnan(band).any() else band
+        if not band.size:
+            continue
+        contrast = np.abs(band - float(np.median(band))) > LEGIBLE_CONTRAST
+        if float(contrast.mean()) > BAND_TRIP:
+            outside.append(name)
     return {"ink": round(float(drawn.mean()), 5),
             "legible": round(float(legible.mean()), 5),
             "outside_safe": outside}

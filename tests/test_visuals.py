@@ -247,7 +247,7 @@ def test_a_clip_and_a_generated_still_render_in_every_family(sample, family, tmp
     source = build_source(sample, total=total, audio_rel=f"{sample.slug}.mp3",
                           phrases_rel=f"phrases/{sample.slug}.txt", segments=segments,
                           images=images, clips=clips, family=family)
-    (workspace / "storyboards" / f"{sample.slug}.py").write_text(source)
+    (workspace / "storyboards" / f"{sample.slug}.py").write_text(source, encoding="utf-8")
 
     screens = _data_of(source)["screens"]
     kinds = [slot["kind"] for s in screens for slot in s["slots"]]

@@ -30,10 +30,15 @@ class FakeProvider(VisualsProvider):
         from PIL import Image, ImageDraw
 
         self.calls.append({"kind": "still", "prompt": prompt, "seed": seed})
+        # contrast on purpose: a real photograph has darks and lights, and the
+        # smoke check's sparse rung measures exactly that
         image = Image.new("RGB", (width, height), _colour(seed))
         draw = ImageDraw.Draw(image)
         for i in range(0, height, 64):
-            draw.line((0, i, width, i + width // 3), fill=_colour(seed + i), width=3)
+            tone = 20 if (i // 64) % 2 else 235
+            draw.line((0, i, width, i + width // 3), fill=(tone, tone, tone), width=9)
+        draw.ellipse((width // 4, height // 3, 3 * width // 4, 2 * height // 3),
+                     fill=(250, 250, 255), outline=(10, 10, 14), width=12)
         out.parent.mkdir(parents=True, exist_ok=True)
         image.save(out, "PNG")
         return StillResult(path=out, width=width, height=height, seed=seed, prompt=prompt)
@@ -47,10 +52,16 @@ class FakeProvider(VisualsProvider):
         count = max(1, int(round(seconds * fps)))
         base = _colour(seed)
         for index in range(count):
+            # a picture, not a flat card: real clips carry contrast, and the
+            # smoke check's sparse rung is right to flag a frame without any
             image = Image.new("RGB", (width, height), base)
             draw = ImageDraw.Draw(image)
+            for band in range(0, height, height // 8):
+                tone = 30 + (band * 7 + seed * 13) % 200
+                draw.rectangle((0, band, width, band + height // 16),
+                               fill=(tone, tone, min(255, tone + 30)))
             y = int(height * index / count)
-            draw.rectangle((0, y, width, y + 40), fill=_colour(seed + 7))
+            draw.rectangle((0, y, width, y + 40), fill=(245, 245, 250))
             image.save(out_dir / f"{index + 1:05d}.jpg", "JPEG", quality=80)
         return ClipResult(frames_dir=out_dir, fps=fps, frames=count, seconds=count / fps,
                           seed=seed, prompt=prompt)
