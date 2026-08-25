@@ -532,11 +532,38 @@ def sl_clip(ov, d, t, t0, o):
              _fit(o["label"], 48, "bold"), WHITE, k, 2, "mb")
 
 
+
+def _fit_line(value, face, track, budget, url=False):
+    """The end cards draw their lines at fixed sizes; the strings bend instead.
+
+    A URL loses its host first -- the path is the identity, the host is
+    boilerplate -- and anything still too wide is ellipsis-trimmed. Measured
+    with the same face and tracking the card will draw with, because whether
+    a line fits depends on which letters it uses."""
+    if not value:
+        return value
+    out = str(value)
+    if tw(out, face, track) <= budget:
+        return out
+    if url and "/" in out:
+        out = out.split("/", 1)[1]
+        if tw(out, face, track) <= budget:
+            return out
+    while out and tw(out + "\u2026", face, track) > budget:
+        out = out[:-1]
+    return (out.rstrip() + "\u2026") if out else str(value)[:8]
+
+
 def sl_endcard(ov, d, t, t0, o):
     # start the entrance before the cut, so the frame just after the cut is
     # already substantially drawn rather than a near-empty fade-up
-    endcard(ov, d, t, t0 - 0.30, TH, DATA["wordmark"], DATA["endcard_sub"],
-            DATA["url"], DATA["url2"], DATA["cta"], mark_size=DATA["mark_size"])
+    budget = W - 2 * MARGIN
+    endcard(ov, d, t, t0 - 0.30, TH, DATA["wordmark"],
+            _fit_line(DATA["endcard_sub"], m(38), 3, budget),
+            _fit_line(DATA["url"], m(40, "bold"), 0, budget, url=True),
+            _fit_line(DATA["url2"], m(34), 0, budget, url=True),
+            _fit_line(DATA["cta"], f(40, "bold"), 4, budget - 112),
+            mark_size=DATA["mark_size"])
 
 
 SLOTS = {{
@@ -890,9 +917,35 @@ def sl_clip(ov, d, t, t0, o, i):
         S.chip(ov, d, (CX, 236), o["label"], t, t0 + 0.10, TH, i, size=32)
 
 
+
+def _fit_line(value, face, track, budget, url=False):
+    """The end cards draw their lines at fixed sizes; the strings bend instead.
+
+    A URL loses its host first -- the path is the identity, the host is
+    boilerplate -- and anything still too wide is ellipsis-trimmed. Measured
+    with the same face and tracking the card will draw with, because whether
+    a line fits depends on which letters it uses."""
+    if not value:
+        return value
+    out = str(value)
+    if tw(out, face, track) <= budget:
+        return out
+    if url and "/" in out:
+        out = out.split("/", 1)[1]
+        if tw(out, face, track) <= budget:
+            return out
+    while out and tw(out + "\u2026", face, track) > budget:
+        out = out[:-1]
+    return (out.rstrip() + "\u2026") if out else str(value)[:8]
+
+
 def sl_endcard(ov, d, t, t0, o, i):
-    S.endcard(ov, d, t, t0 - 0.30, TH, i, DATA["wordmark"], DATA["endcard_sub"],
-              DATA["url"], DATA["cta"], mark_size=DATA["mark_size"])
+    budget = CR - CX
+    S.endcard(ov, d, t, t0 - 0.30, TH, i, DATA["wordmark"],
+              _fit_line(DATA["endcard_sub"], f(40, "med"), 0, budget),
+              _fit_line(DATA["url"], m(36, "bold"), 0, budget, url=True),
+              _fit_line(DATA["cta"], f(38, "bold"), 0, budget - 84),
+              mark_size=DATA["mark_size"])
 
 
 SLOTS = {{
@@ -1192,9 +1245,37 @@ def sl_clip(ov, d, t, t0, o, i):
            (x0, top, RIGHT, top + show), k)
 
 
+
+def _fit_line(value, face, track, budget, url=False):
+    """The end cards draw their lines at fixed sizes; the strings bend instead.
+
+    A URL loses its host first -- the path is the identity, the host is
+    boilerplate -- and anything still too wide is ellipsis-trimmed. Measured
+    with the same face and tracking the card will draw with, because whether
+    a line fits depends on which letters it uses."""
+    if not value:
+        return value
+    out = str(value)
+    if tw(out, face, track) <= budget:
+        return out
+    if url and "/" in out:
+        out = out.split("/", 1)[1]
+        if tw(out, face, track) <= budget:
+            return out
+    while out and tw(out + "\u2026", face, track) > budget:
+        out = out[:-1]
+    return (out.rstrip() + "\u2026") if out else str(value)[:8]
+
+
 def sl_endcard(ov, d, t, t0, o, i):
-    L.endcard(ov, d, t, t0 - 0.30, TH, DATA["wordmark"], DATA["endcard_sub"],
-              DATA["url"], DATA["url2"], DATA["cta"],
+    # L.endcard draws left-aligned from CX at fixed sizes with no fitting of
+    # its own; a Hugging Face URL walked straight through the right safe edge
+    budget = RIGHT - CX
+    L.endcard(ov, d, t, t0 - 0.30, TH, DATA["wordmark"],
+              _fit_line(DATA["endcard_sub"], m(34), 2, budget),
+              _fit_line(DATA["url"], m(38, "bold"), 0, budget, url=True),
+              _fit_line(DATA["url2"], m(30), 0, budget, url=True),
+              _fit_line(DATA["cta"], f(34, "bold"), 4, budget - 84),
               mark_size=DATA["mark_size"])
 
 

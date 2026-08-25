@@ -365,3 +365,44 @@ def test_a_long_narration_makes_a_long_reel_instead_of_failing(sample, tmp_path,
     with pytest.raises(StageFailed, match="platforms accept"):
         run_audio(job, store, None)
     config.get_config.cache_clear()
+
+
+def test_a_long_url_never_crosses_the_end_cards_right_edge(sample, tmp_path):
+    """The minimax-music3 failure: L.endcard draws the URL at m(38) from
+    x 232 with no fitting, and a Hugging Face URL walked through x 996."""
+    pytest.importorskip("PIL")
+    from tests.test_screens import _require_fonts
+
+    _require_fonts()
+    from app.render.fallback_storyboard import build_source
+    from app.stages.storyboard import run_smoke
+
+    content = sample.model_copy(deep=True)
+    content.repo_url = "https://huggingface.co/MiniMaxAI/MiniMax-Music3-Extended-Preview"
+    for family in ("ledger", "slab", "bloom"):
+        total = 20.0
+        workspace, segments = _workspace_for(tmp_path / family, content, total)
+        source = build_source(content, total=total, audio_rel=f"{content.slug}.mp3",
+                              phrases_rel=f"phrases/{content.slug}.txt", segments=segments,
+                              family=family)
+        (workspace / "storyboards" / f"{content.slug}.py").write_text(source, encoding="utf-8")
+        result = run_smoke(workspace, content.slug, tmp_path / family / "frames",
+                           expected_duration=total)
+        rungs = {p["rung"] for p in result.get("problems", [])}
+        assert "crash" not in rungs, (family, result.get("problems"))
+        def side_trips(report):
+            return {(round(f["t"], 1), band) for f in report.get("frames", [])
+                    if f["t"] > total - 4
+                    for band in (f.get("outside_safe") or []) if band in ("left", "right")}
+
+        # Slab's light palette trips the luminance bands everywhere with this
+        # fixture (a pre-existing condition) -- so the assertion is relative:
+        # the long URL must add no side trip the short URL did not already have.
+        base_src = build_source(sample, total=total, audio_rel=f"{sample.slug}.mp3",
+                                phrases_rel=f"phrases/{sample.slug}.txt", segments=segments,
+                                family=family)
+        (workspace / "storyboards" / f"{sample.slug}.py").write_text(base_src, encoding="utf-8")
+        baseline = run_smoke(workspace, sample.slug, tmp_path / family / "frames-base",
+                             expected_duration=total)
+        extra = side_trips(result) - side_trips(baseline)
+        assert not extra, (family, sorted(extra))
