@@ -274,9 +274,18 @@
                  }).join(",") +
                  "|" + queue.paused;
       var changed = next !== state.fingerprint;
-      state.fingerprint = next;
-      if (changed) { renderQueue(); renderJobs(); }
-      return changed;
+      if (changed) {
+        renderQueue();
+        renderJobs();
+        // committed only after the paint: advancing it first meant one render
+        // error left the page stale for ever, with every later poll agreeing
+        // that nothing had changed
+        state.fingerprint = next;
+      }
+      // While anything is queued or running the poll must stay at full rate:
+      // stage handoffs land between polls, and the backoff meant a finished
+      // stage could sit on screen for twenty seconds looking current.
+      return changed || queue.entries.length > 0;
     });
   }
 

@@ -1569,6 +1569,9 @@ async function clearSecret(name){
     const h = await api('/api/health'); $('#executor').textContent = 'executor: '+h.executor;
     setInterval(async()=>{ try{ const q=await api('/api/queue');
       $('#queuecount').textContent = `${q.counts.running} running · ${q.counts.waiting} waiting`;
+      // the sidebar tracks other jobs' progress too, not only the open one's
+      // event stream -- but never redraw a list nobody is looking at
+      if(!document.hidden && (q.counts.running || q.counts.waiting)) loadJobs();
     }catch(e){} }, 4000);
     await loadJobs();
     if(state.jobs.length) openJob(state.jobs[0].id);
