@@ -171,13 +171,13 @@
 
   function stageBar(job, queueEntry) {
     var statuses = stageStatuses(job, queueEntry);
-    return el("div", { class: "stagebar", "aria-hidden": "true" },
+    return el("div", { class: "stagebar" },
       STAGE_ORDER.map(function (name, i) {
         return el("span", {
           class: "stagebar__cell",
           dataset: { status: statuses[i] },
           title: RF.stages.label(name) + " — " + RF.stages.status(statuses[i]).label,
-        });
+        }, el("span", { class: "stagebar__label" }, RF.stages.label(name)));
       }));
   }
 
