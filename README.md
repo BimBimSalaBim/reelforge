@@ -1,5 +1,13 @@
 # ReelForge
 
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](docs/SETUP.md)
+[![FastAPI](https://img.shields.io/badge/FastAPI-service-009688?logo=fastapi&logoColor=white)](docs/ARCHITECTURE.md)
+[![FFmpeg 4.0+](https://img.shields.io/badge/FFmpeg-4.0%2B-007808?logo=ffmpeg&logoColor=white)](docs/SETUP.md)
+[![ComfyUI visuals](https://img.shields.io/badge/ComfyUI-Qwen--Image%20%C2%B7%20LTX--2.5-8A63D2)](docs/CONFIGURATION.md#generated-imagery-comfyui)
+[![Fish-Speech narration](https://img.shields.io/badge/Fish--Speech-voice%20cloning-FF6F61)](docs/CONFIGURATION.md#fish-speech-narration)
+[![Output](https://img.shields.io/badge/output-1080%C3%971920%20%C2%B7%2030fps-111111)](docs/CONFIGURATION.md#encode-settings--do-not-drift)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-no%20required%20APIs-2E7D32)](docs/CONFIGURATION.md)
+
 Turn a GitHub repository or a Hugging Face model into a finished vertical reel —
 video, cover art, and the per-platform copy that ships with it.
 
@@ -11,6 +19,12 @@ next one runs.
 
 One file serves Instagram Reels, YouTube Shorts and Facebook Reels:
 **1080×1920 · 30 fps · H.264 High @ 4.1 · CRF 18 · AAC-LC 192 kbps · −14 LUFS**.
+
+![Three reels rendered by the pipeline -- the Bloom, Ledger and Slab design languages, sped up](docs/media/demo.gif)
+
+*Three finished reels, one per design language — Bloom, Ledger, Slab — each fully
+generated from a URL: script, narration, AI stills and clips, music bed, cover.
+Sped up ~4×.*
 
 ---
 
