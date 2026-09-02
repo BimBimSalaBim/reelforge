@@ -51,7 +51,7 @@ services:
     # Loopback only. The settings API accepts API keys, and without
     # REELFORGE_ADMIN_TOKEN set it trusts anything that can reach it. Publish
     # more widely only together with that token.
-    ports: ["127.0.0.1:8000:8000"]
+    ports: ["127.0.0.1:8001:8000"]  # host 8000 is Coolify (Hermes fork tweak)
 
   # Short stages: ingest, content, audio, align, package. Kept off the render
   # queue so an eight-minute encode never blocks a thirty-second LLM call.
@@ -80,7 +80,7 @@ services:
       REELFORGE_RENDER__WORKERS: "0"
     deploy:
       resources:
-        limits: {cpus: "8"}
+        limits: {cpus: "4"}  # host has 4 CPUs (Hermes fork tweak)
 
   ollama:
     profiles: ["local-llm"]
@@ -92,7 +92,7 @@ services:
   tts:
     profiles: ["local-tts"]
     image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
-    ports: ["8080:8880"]
+    ports: ["127.0.0.1:8081:8880"]  # loopback only (Hermes fork tweak)
     restart: unless-stopped
 
 volumes:
