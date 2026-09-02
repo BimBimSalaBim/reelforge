@@ -217,6 +217,32 @@ class OpenAICompatProvider(LLMProvider):
 
             choice = (data.get("choices") or [{}])[0]
             text = (choice.get("message") or {}).get("content") or ""
+            if not text and schema is not None:
+                # Hermes debug hook: dump the raw response when a structured
+                # call comes back empty (both reasoning providers did this
+                # against small completion budgets, Sep 2026).
+                try:
+                    import json as _json
+                    import pathlib
+                    import os as _os
+                    _dbg = pathlib.Path(_os.environ.get(
+                        "REELFORGE_DEBUG_DIR", "M:\\reelforge\\logs"))
+                    _dbg.mkdir(parents=True, exist_ok=True)
+                    with (_dbg / "llm_empty_dump.jsonl").open(
+                            "a", encoding="utf-8") as _fh:
+                        _fh.write(_json.dumps({
+                            "ts": time.time(),
+                            "model": data.get("model"),
+                            "finish_reason": choice.get("finish_reason"),
+                            "message_keys": list((choice.get("message") or {}).keys()),
+                            "content_type": type((choice.get("message") or {}).get("content")).__name__,
+                            "has_reasoning": bool((choice.get("message") or {}).get("reasoning")),
+                            "usage": (data.get("usage") or {}),
+                            "system_head": (system or "")[:400],
+                            "user_head": (user or "")[:400],
+                        }) + "\n")
+                except Exception:
+                    pass
             text = strip_reasoning(text)
             usage = data.get("usage") or {}
             result = LLMResult(
