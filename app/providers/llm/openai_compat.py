@@ -42,6 +42,12 @@ class OpenAICompatProvider(LLMProvider):
         #: answer and cannot use grammar-constrained decoding at all.
         self._window: int | None = None
         self.extra_body = dict(settings.get("extra_body") or {})
+        # Hermes deployment: DeepSeek's OpenAI-compatible API burns the whole
+        # completion budget on reasoning for large structured asks and returns
+        # empty content (finish_reason=length, content=None). `thinking_disabled`
+        # sends the DeepSeek param that turns reasoning off for this profile.
+        if settings.get("thinking_disabled"):
+            self.extra_body.setdefault("thinking", {"type": "disabled"})
         if settings.get("disable_thinking"):
             self.extra_body.setdefault("chat_template_kwargs",
                                        {"enable_thinking": False})
