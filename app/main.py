@@ -23,6 +23,11 @@ from app.config import get_config
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-7s %(name)s  %(message)s")
 
+# Hermes integration: optional Sentry/GlitchTip error tracking (SENTRY_DSN env).
+from app.observability import init_sentry
+
+init_sentry()
+
 UI_DIST = Path(__file__).resolve().parent / "ui" / "dist"
 UI_V2 = Path(__file__).resolve().parent / "ui_v2"
 

@@ -9,6 +9,11 @@ from __future__ import annotations
 from celery import Celery
 
 from app.config import get_config
+# Hermes integration: optional Sentry/GlitchTip error tracking (SENTRY_DSN env).
+from app.observability import init_sentry
+
+init_sentry()
+
 from app.models.job import Stage
 from app.progress import publish, reporter
 from app.stages.pipeline import run_stage

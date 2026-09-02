@@ -28,3 +28,7 @@ playwright>=1.40
 # Fish-Speech narration (app/providers/tts/fish.py) talks to its Gradio app.
 # Optional at runtime: only the `fish` voice adapter imports it.
 gradio_client>=1.4
+
+# Hermes integration: optional Sentry/GlitchTip error tracking. Imported
+# lazily by app/observability.py only when SENTRY_DSN is set.
+sentry-sdk==1.45.1
